@@ -153,6 +153,15 @@ export const t = {
     title: 'Titres likés',
     emptyState: "Aucun titre liké pour l'instant",
     trackCount: (n: number) => `${n} titre${n !== 1 ? 's' : ''}`,
+    recommendedButton: 'Titres recommandés',
+  },
+
+  // ─── Liked Recommendations ─────────────────────────────────────────────────
+  likedRecommendations: {
+    title: 'Recommandé pour vous',
+    subtitle: 'Basé sur vos titres likés',
+    loading: 'Recherche de recommandations…',
+    emptyState: 'Aucune recommandation disponible pour le moment',
   },
 
   // ─── Playlist Detail ───────────────────────────────────────────────────────

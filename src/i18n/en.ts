@@ -149,6 +149,15 @@ export const en = {
     title: 'Liked Songs',
     emptyState: 'No liked songs yet',
     trackCount: (n: number) => `${n} song${n !== 1 ? 's' : ''}`,
+    recommendedButton: 'Recommended tracks',
+  },
+
+  // ─── Liked Recommendations ─────────────────────────────────────────────────
+  likedRecommendations: {
+    title: 'Recommended for you',
+    subtitle: 'Based on your liked songs',
+    loading: 'Finding recommendations…',
+    emptyState: 'No recommendations available right now',
   },
 
   // ─── Playlist Detail ───────────────────────────────────────────────────────

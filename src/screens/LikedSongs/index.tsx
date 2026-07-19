@@ -227,20 +227,28 @@ export default function LikedSongsScreen() {
             </LinearGradient>
 
             {!loading && displayedSongs.length > 0 && (
-              <View style={styles.actionRow}>
+              <>
+                <View style={styles.actionRow}>
+                  <TouchableOpacity
+                    style={styles.shuffleBtn}
+                    onPress={toggleShuffle}
+                    activeOpacity={0.8}>
+                    <ShuffleIcon mode={shuffleMode} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.playBtn}
+                    onPress={handlePlayAll}
+                    activeOpacity={0.85}>
+                    <PlayIcon />
+                  </TouchableOpacity>
+                </View>
                 <TouchableOpacity
-                  style={styles.shuffleBtn}
-                  onPress={toggleShuffle}
+                  style={styles.recoButton}
+                  onPress={() => navigation.navigate('LikedRecommendations')}
                   activeOpacity={0.8}>
-                  <ShuffleIcon mode={shuffleMode} />
+                  <Text style={styles.recoButtonText}>{t.likedSongs.recommendedButton}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.playBtn}
-                  onPress={handlePlayAll}
-                  activeOpacity={0.85}>
-                  <PlayIcon />
-                </TouchableOpacity>
-              </View>
+              </>
             )}
           </View>
         }
@@ -355,6 +363,19 @@ const styles = StyleSheet.create({
     shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.5,
     shadowRadius: 8,
+  },
+  recoButton: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
+    backgroundColor: '#282828',
+    alignItems: 'center',
+  },
+  recoButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   listContent: {
     paddingBottom: 140,
