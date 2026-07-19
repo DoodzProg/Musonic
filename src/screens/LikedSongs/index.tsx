@@ -1,9 +1,9 @@
 /**
  * @file index.tsx
  * @description Liked Songs screen. Displays all starred tracks with playback,
- *   add-to-playlist, and remove-from-liked actions.
+ *   like/add-to-playlist/download actions per row, and remove-from-liked actions.
  * @author DoodzProg
- * @version 1.0.0
+ * @version 1.0.3
  * @license MIT
  */
 
@@ -15,6 +15,7 @@ import {
   TouchableOpacity,
   StatusBar,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import {FlashList} from '@shopify/flash-list';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -28,14 +29,20 @@ import {getStarred} from '../../api/endpoints/library';
 import {getStreamUrl, getCoverArtUrl} from '../../api/client';
 import {loadAndPlayTracks} from '../../services/playerActions';
 import {usePlayerStore} from '../../store/playerStore';
+import {usePlaylistCacheStore} from '../../store/playlistCacheStore';
+import {useDownloadStore} from '../../store/downloadStore';
 import type {SubsonicSong} from '../../api/types';
 import type {Track} from '../../store/playerStore';
 import CoverArt from '../../components/CoverArt';
 import HeartIcon from '../../components/icons/HeartIcon';
 import ShuffleIcon from '../../components/icons/ShuffleIcon';
+import PlusCircleIconComponent from '../../components/icons/PlusCircleIcon';
+import CheckCircleGreenIcon from '../../components/icons/CheckCircleGreenIcon';
+import DownloadStatusIcon from '../../components/icons/DownloadStatusIcon';
 import SongOptionsSheet from '../../components/SongOptionsSheet';
+import AddToPlaylistSheet from '../../components/AddToPlaylistSheet';
 import {showToast} from '../../components/Toast';
-import {useT} from '../../i18n';
+import {useT, getT} from '../../i18n';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -54,6 +61,85 @@ function songToTrack(s: SubsonicSong): Track {
   };
 }
 
+// ─── Song Row ────────────────────────────────────────────────────────────────
+
+type SongRowProps = {
+  song: SubsonicSong;
+  onPress: () => void;
+  onMore: () => void;
+  onAddToPlaylist: () => void;
+};
+
+const SongRow = React.memo(function SongRow({song, onPress, onMore, onAddToPlaylist}: SongRowProps) {
+  const likedSongIds = usePlayerStore(s => s.likedSongIds);
+  const localLikeOverrides = usePlayerStore(s => s.localLikeOverrides);
+  const pendingLikes = usePlayerStore(s => s.pendingLikes);
+  const toggleLike = usePlayerStore(s => s.toggleLike);
+  const savedSet = usePlaylistCacheStore(s => s.savedSet);
+  const id = String(song.id);
+  const isLiked = localLikeOverrides[id] !== undefined ? localLikeOverrides[id] : likedSongIds.has(id);
+  const isInPlaylist = savedSet.has(id);
+
+  const handleDownloadPress = useCallback(() => {
+    const isDownloaded = id in useDownloadStore.getState().downloads;
+    if (isDownloaded) {
+      const d = getT();
+      Alert.alert(
+        d.downloads.deleteSongTitle,
+        d.downloads.deleteSongMessage(song.title),
+        [
+          {text: d.downloads.cancelButton, style: 'cancel'},
+          {
+            text: d.downloads.deleteConfirm,
+            style: 'destructive',
+            onPress: () => useDownloadStore.getState().deleteDownload(id),
+          },
+        ],
+      );
+    } else {
+      useDownloadStore.getState().enqueueTrack(song);
+    }
+  }, [id, song]);
+
+  return (
+    <TouchableOpacity style={styles.songRow} onPress={onPress} onLongPress={onMore} delayLongPress={400} activeOpacity={0.7}>
+      <CoverArt id={song.coverArt} size={48} borderRadius={4} />
+      <View style={styles.songInfo}>
+        <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
+        <Text style={styles.songArtist} numberOfLines={1}>{song.artist}</Text>
+      </View>
+      <View style={styles.songActions}>
+        <TouchableOpacity
+          hitSlop={{top: 10, bottom: 10, left: 10, right: 6}}
+          onPress={() => toggleLike(id, song.title, song.artist)}
+          disabled={pendingLikes.has(id)}>
+          {pendingLikes.has(id)
+            ? <ActivityIndicator size="small" color={darkTheme.accent} style={styles.likeSpinner} />
+            : <HeartIcon size={20} color={isLiked ? darkTheme.accent : '#444'} filled={isLiked} />}
+        </TouchableOpacity>
+        <TouchableOpacity
+          hitSlop={{top: 10, bottom: 10, left: 6, right: 6}}
+          onPress={onAddToPlaylist}>
+          {isInPlaylist
+            ? <CheckCircleGreenIcon size={20} />
+            : <PlusCircleIconComponent size={20} color="#444" />}
+        </TouchableOpacity>
+        <TouchableOpacity
+          hitSlop={{top: 10, bottom: 10, left: 6, right: 6}}
+          onPress={handleDownloadPress}>
+          <DownloadStatusIcon trackId={id} size={20} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.moreBtn}
+          hitSlop={{top: 8, bottom: 8, left: 4, right: 8}}
+          onPress={onMore}>
+          <DotsVerticalIcon size={20} color="#b3b3b3" />
+        </TouchableOpacity>
+      </View>
+    </TouchableOpacity>
+  );
+}, (prev, next) => prev.song.id === next.song.id && prev.song.title === next.song.title);
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 export default function LikedSongsScreen() {
@@ -69,6 +155,8 @@ export default function LikedSongsScreen() {
 
   const [selectedSong, setSelectedSong] = useState<SubsonicSong | null>(null);
   const [songOptsVisible, setSongOptsVisible] = useState(false);
+  const [addToPlaylistSong, setAddToPlaylistSong] = useState<SubsonicSong | null>(null);
+  const [addToPlaylistVisible, setAddToPlaylistVisible] = useState(false);
   useFocusEffect(useCallback(() => {
     setLoading(true);
     getStarred()
@@ -168,29 +256,22 @@ export default function LikedSongsScreen() {
           )
         }
         renderItem={({item, index}) => (
-          <TouchableOpacity
-            style={styles.songRow}
+          <SongRow
+            song={item}
             onPress={() => handlePressSong(index)}
-            onLongPress={() => handleMore(item)}
-            activeOpacity={0.7}>
-            <CoverArt id={item.coverArt} size={48} borderRadius={4} />
-            <View style={styles.songInfo}>
-              <Text style={styles.songTitle} numberOfLines={1}>
-                {item.title}
-              </Text>
-              <Text style={styles.songArtist} numberOfLines={1}>
-                {item.artist}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.moreBtn}
-              onPress={() => handleMore(item)}
-              hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-              <DotsVerticalIcon size={20} color="#b3b3b3" />
-            </TouchableOpacity>
-          </TouchableOpacity>
+            onMore={() => handleMore(item)}
+            onAddToPlaylist={() => { setAddToPlaylistSong(item); setAddToPlaylistVisible(true); }}
+          />
         )}
         contentContainerStyle={styles.listContent}
+      />
+
+      <AddToPlaylistSheet
+        visible={addToPlaylistVisible}
+        onClose={() => setAddToPlaylistVisible(false)}
+        trackId={addToPlaylistSong ? String(addToPlaylistSong.id) : undefined}
+        trackTitle={addToPlaylistSong?.title}
+        onToast={showToast}
       />
 
       <SongOptionsSheet
@@ -281,7 +362,8 @@ const styles = StyleSheet.create({
   songRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 10,
     paddingVertical: 8,
   },
   songInfo: {
@@ -299,7 +381,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   moreBtn: {
-    padding: 8,
+    paddingVertical: 8,
+    paddingLeft: 4,
+  },
+  songActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  likeSpinner: {
+    width: 20,
+    height: 20,
   },
   center: {
     alignItems: 'center',
