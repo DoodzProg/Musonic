@@ -105,6 +105,13 @@ function startFadeOut(durationSeconds: number) {
   fadeOutTimer = id;
 }
 
+// getProgress is polled every 500ms, so detecting the fade-out trigger point
+// can lag by up to ~0.5s. Without this margin, the fade-out ramp starts late
+// and is still mid-ramp (not yet at volume 0) when the track actually ends,
+// causing an audible blip at the start of the next track before its own
+// fade-in catches up. Triggering slightly early absorbs that worst-case lag.
+const POLL_SAFETY_MARGIN_SECONDS = 0.5;
+
 function startProgressPoller(durationSeconds: number) {
   fadeOutStarted = false;
   const id = setInterval(async () => {
@@ -114,7 +121,7 @@ function startProgressPoller(durationSeconds: number) {
       if (
         duration > 0 &&
         duration > durationSeconds * 2 &&
-        position >= duration - durationSeconds
+        position >= duration - durationSeconds - POLL_SAFETY_MARGIN_SECONDS
       ) {
         fadeOutStarted = true;
         clearInterval(id);
