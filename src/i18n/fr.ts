@@ -4,7 +4,7 @@
  *   Add keys here first, then mirror them in en.ts. The i18n/index.ts hook
  *   selects the active locale based on settingsStore.language.
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.3
  * @license CC-BY-NC-4.0
  */
 // French UI strings — single source of truth for all user-visible text.
@@ -413,6 +413,9 @@ export const t = {
     removedFromLibrary: 'Album retiré de la bibliothèque',
     addToLibrary: 'Ajouter à la bibliothèque',
     removeFromLibraryAction: 'Retirer de la bibliothèque',
+    importingAlbum: 'Import de l’album vers votre serveur…',
+    stillImportingAlbum: 'Import toujours en cours, veuillez patienter…',
+    importError: 'Échec de l’import de l’album',
   },
 
 } as const;

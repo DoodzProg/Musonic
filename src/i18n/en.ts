@@ -3,7 +3,7 @@
  * @description English UI strings. Mirrors the structure of fr.ts exactly.
  *   Swap the active locale in i18n/index.ts to enable English.
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.3
  * @license CC-BY-NC-4.0
  */
 export const en = {
@@ -406,6 +406,9 @@ export const en = {
     removedFromLibrary: 'Album removed from library',
     addToLibrary: 'Add to library',
     removeFromLibraryAction: 'Remove from library',
+    importingAlbum: 'Importing album to your server…',
+    stillImportingAlbum: 'Still importing, please wait…',
+    importError: 'Failed to import album',
   },
 
 };

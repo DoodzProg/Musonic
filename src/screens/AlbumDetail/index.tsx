@@ -4,7 +4,7 @@
  *   and playback controls for a specific album. Supports shuffle, star/unstar,
  *   and animated parallax header.
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.3
  * @license MIT
  */
 
@@ -190,7 +190,7 @@ function SongRow({song, isActive, index, onPress, onMore, onAddToPlaylist, onDow
 // ─── List Header ──────────────────────────────────────────────────────────────
 function AlbumHeader({
   topBarH, coverArtId, albumName, artistName, artistImageUrl, year,
-  isShuffled: _isShuffled, shuffleMode, isStarred, loadingAlbum, coverScale, coverTranslateY,
+  isShuffled: _isShuffled, shuffleMode, isStarred, isStarPending, loadingAlbum, coverScale, coverTranslateY,
   onPlay, onShuffle, onToggleStar, onArtistPress, onMorePress, onDownload,
 }: any) {
   const t = useT();
@@ -227,8 +227,14 @@ function AlbumHeader({
 
       <View style={styles.actionsRow}>
         <View style={styles.actionsLeft}>
-          <TouchableOpacity style={styles.actionBtn} onPress={onToggleStar} activeOpacity={0.7}>
-            {isStarred ? <CheckCircleGreen size={26} /> : <PlusCircleIconComponent size={26} />}
+          <TouchableOpacity style={styles.actionBtn} onPress={onToggleStar} activeOpacity={0.7} disabled={isStarPending}>
+            {isStarPending ? (
+              <ActivityIndicator size="small" color={darkTheme.accent} />
+            ) : isStarred ? (
+              <CheckCircleGreen size={26} />
+            ) : (
+              <PlusCircleIconComponent size={26} />
+            )}
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onDownload}>
             <DownloadIcon size={22} />
@@ -271,6 +277,7 @@ export default function AlbumDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingAlbum, setLoadingAlbum] = useState(false);
   const [isStarred, setIsStarred] = useState(false);
+  const [isStarPending, setIsStarPending] = useState(false);
 
   const [selectedSong, setSelectedSong] = useState<SubsonicSong | null>(null);
   const [songOptsVisible, setSongOptsVisible] = useState(false);
@@ -313,20 +320,104 @@ export default function AlbumDetailScreen() {
   }, [albumId]);
 
   const handleToggleStar = useCallback(async () => {
-    const next = !isStarred;
-    setIsStarred(next);
-    try {
-      if (next) {
+    if (isStarPending) return;
+
+    // Unstar: for ext- albums, only possible once we already have a resolved
+    // Navidrome id (star.view/unstar.view need a real album id either way).
+    if (isStarred) {
+      const nativeId = albumId.startsWith('ext-')
+        ? usePlayerStore.getState().localImportedIds[albumId]
+        : albumId;
+      setIsStarred(false);
+      try {
+        if (nativeId) await subsonicGet('unstar.view', {albumId: nativeId});
+        showToast(getT().albumDetail.removedFromLibrary);
+      } catch {
+        setIsStarred(true);
+      }
+      return;
+    }
+
+    if (!albumId.startsWith('ext-')) {
+      // Native Navidrome album — always fully indexed, simple path.
+      setIsStarred(true);
+      try {
         await subsonicGet('star.view', {albumId});
         showToast(getT().albumDetail.addedToLibrary);
-      } else {
-        await subsonicGet('unstar.view', {albumId});
-        showToast(getT().albumDetail.removedFromLibrary);
+      } catch {
+        setIsStarred(false);
       }
-    } catch {
-      setIsStarred(!next);
+      return;
     }
-  }, [isStarred, albumId]);
+
+    // ext-deezer-album-*: fast path if this album was already resolved
+    // to a real Navidrome id earlier this session.
+    const cachedId = usePlayerStore.getState().localImportedIds[albumId];
+    if (cachedId) {
+      setIsStarred(true);
+      try {
+        await subsonicGet('star.view', {albumId: cachedId});
+        showToast(getT().albumDetail.addedToLibrary);
+        return;
+      } catch {
+        setIsStarred(false);
+        // Stale cache — fall through to a full re-import below.
+      }
+    }
+
+    // Full import: OctoFiesta only fully registers the album server-side once
+    // its tracks have been streamed/scanned. Trigger every unindexed track,
+    // then poll search3.view for the resulting native album (same stream+poll
+    // pattern already used for like/playlist-add on ext- tracks).
+    setIsStarPending(true);
+    showToast(getT().albumDetail.importingAlbum);
+
+    songs.forEach(s => {
+      const id = String(s.id);
+      if (id.startsWith('ext-')) {
+        fetch(getStreamUrl(id), {headers: {Range: 'bytes=0-8192'}})
+          .then(res => res.arrayBuffer())
+          .catch(() => {});
+      }
+    });
+
+    let navidromeAlbumId: string | null = null;
+    for (let attempt = 0; attempt < 25; attempt++) {
+      await new Promise<void>(r => setTimeout(r, 3000));
+      if (attempt === 10) showToast(getT().albumDetail.stillImportingAlbum);
+      try {
+        const res = await subsonicGet<any>('search3.view', {
+          query: albumName,
+          songCount: 0,
+          albumCount: 5,
+          artistCount: 0,
+        });
+        const albums: any[] = res.searchResult3?.album ?? [];
+        const match = albums.find(a => {
+          const id = String(a.id);
+          return !id.startsWith('ext-') && a.name === albumName && (!artistName || a.artist === artistName);
+        });
+        if (match) { navidromeAlbumId = String(match.id); break; }
+      } catch { /* keep polling */ }
+    }
+
+    setIsStarPending(false);
+
+    if (!navidromeAlbumId) {
+      showToast(getT().albumDetail.importError);
+      return;
+    }
+
+    const resolvedId = navidromeAlbumId;
+    usePlayerStore.setState(s => ({localImportedIds: {...s.localImportedIds, [albumId]: resolvedId}}));
+    try {
+      await subsonicGet('star.view', {albumId: resolvedId});
+      setIsStarred(true);
+      showToast(getT().albumDetail.addedToLibrary);
+    } catch {
+      showToast(getT().albumDetail.importError);
+    }
+  }, [isStarred, isStarPending, albumId, albumName, artistName, songs]);
 
   const handlePlay = useCallback(async () => {
     setLoadingAlbum(true);
@@ -408,7 +499,7 @@ export default function AlbumDetailScreen() {
     <AlbumHeader
       topBarH={topBarH} coverArtId={coverArtId} albumName={albumName} artistName={artistName}
       artistImageUrl={artistImageUrl} year={year}
-      isShuffled={isShuffled} shuffleMode={shuffleMode} isStarred={isStarred} loadingAlbum={loadingAlbum}
+      isShuffled={isShuffled} shuffleMode={shuffleMode} isStarred={isStarred} isStarPending={isStarPending} loadingAlbum={loadingAlbum}
       coverScale={coverScale} coverTranslateY={coverTranslateY}
       onPlay={handlePlay} onShuffle={toggleShuffle} onToggleStar={handleToggleStar}
       onArtistPress={handleArtistPress} onMorePress={() => setAlbumOptsVisible(true)}
@@ -417,7 +508,7 @@ export default function AlbumDetailScreen() {
         showToast(getT().songOptions.downloadQueued);
       }}
     />
-  ), [topBarH, coverArtId, albumName, artistName, artistImageUrl, year, isShuffled, shuffleMode, isStarred, loadingAlbum, coverScale, coverTranslateY, handlePlay, toggleShuffle, handleToggleStar, handleArtistPress, songs]);
+  ), [topBarH, coverArtId, albumName, artistName, artistImageUrl, year, isShuffled, shuffleMode, isStarred, isStarPending, loadingAlbum, coverScale, coverTranslateY, handlePlay, toggleShuffle, handleToggleStar, handleArtistPress, songs]);
 
   return (
     <View style={styles.root}>
