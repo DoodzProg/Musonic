@@ -338,10 +338,10 @@ export const en = {
       sectionTitle: 'Language',
     },
     sections: {
-      player: 'Musonic Player',
+      player: 'Player',
       transitions: 'Track transitions',
       playback: 'Playback controls',
-
+      downloads: 'Downloads',
       display: 'Display',
       offline: 'Offline mode',
     },

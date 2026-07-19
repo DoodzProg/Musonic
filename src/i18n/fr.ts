@@ -343,10 +343,10 @@ export const t = {
       sectionTitle: 'Langue',
     },
     sections: {
-      player: 'Lecteur Musonic',
+      player: 'Lecteur',
       transitions: 'Transitions entre les titres',
       playback: "Contrôles d'écoute",
-
+      downloads: 'Téléchargements',
       display: 'Affichage',
       offline: 'Mode hors-ligne',
     },
