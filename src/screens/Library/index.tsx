@@ -412,7 +412,7 @@ function rowSubtitle(item: LibraryItem): string {
     return d.library.likedTrackCount(item.songCount);
   }
   if (item.kind === 'allSongs') {
-    return d.allSongs.subtitle;
+    return d.allSongs.tileSubtitle;
   }
   if (item.kind === 'album') {
     return `Album • ${item.artist ?? ''}`;
@@ -513,7 +513,7 @@ function PlaylistGridCard({
     item.kind === 'album'
       ? item.artist ?? ''
       : item.kind === 'allSongs'
-      ? t.allSongs.subtitle
+      ? t.allSongs.tileSubtitle
       : isLoading
       ? '…'
       : t.likedSongs.trackCount(item.songCount);

@@ -168,7 +168,8 @@ export const t = {
   // ─── Ma Musique (bibliothèque complète) ────────────────────────────────────
   allSongs: {
     title: 'Ma Musique',
-    subtitle: 'Tous les titres de votre bibliothèque',
+    tileSubtitle: 'Toute votre bibliothèque',
+    trackCount: (n: number) => `${n} titre${n !== 1 ? 's' : ''}`,
     searchPlaceholder: 'Rechercher dans ma musique',
     searchEmpty: 'Aucun titre trouvé',
     loadingLibrary: 'Chargement de toute votre bibliothèque…',

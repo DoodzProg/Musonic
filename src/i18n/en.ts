@@ -164,7 +164,8 @@ export const en = {
   // ─── All Songs (full library) ──────────────────────────────────────────────
   allSongs: {
     title: 'My Music',
-    subtitle: 'All the tracks in your library',
+    tileSubtitle: 'Your entire library',
+    trackCount: (n: number) => `${n} song${n !== 1 ? 's' : ''}`,
     searchPlaceholder: 'Search your music',
     searchEmpty: 'No matching tracks',
     loadingLibrary: 'Loading your whole library…',

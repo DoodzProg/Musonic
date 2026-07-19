@@ -183,11 +183,11 @@ export default function LikedSongsScreen() {
   }, [displayedSongs, searchQuery]);
 
   const handlePlayAll = useCallback(() => {
-    if (displayedSongs.length === 0) return;
-    const tracks = displayedSongs.map(songToTrack);
+    if (searchedSongs.length === 0) return;
+    const tracks = searchedSongs.map(songToTrack);
     const ordered = isShuffled ? [...tracks].sort(() => Math.random() - 0.5) : tracks;
     loadAndPlayTracks(ordered, 0);
-  }, [displayedSongs, isShuffled]);
+  }, [searchedSongs, isShuffled]);
 
   const handlePressSong = useCallback(
     (index: number) => {

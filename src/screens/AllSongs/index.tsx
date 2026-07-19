@@ -205,7 +205,9 @@ export default function AllSongsScreen() {
 
       <View style={styles.titleBlock}>
         <Text style={styles.title}>{t.allSongs.title}</Text>
-        <Text style={styles.subtitle}>{t.allSongs.subtitle}</Text>
+        <Text style={styles.subtitle}>
+          {loading ? '…' : t.allSongs.trackCount(songs.length)}
+        </Text>
       </View>
 
       {!loading && searchedSongs.length > 0 && (
@@ -300,9 +302,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 13,
-    color: '#888',
-    fontStyle: 'italic',
+    fontSize: 14,
+    color: '#b3b3b3',
+    fontWeight: '500',
   },
   actionRow: {
     flexDirection: 'row',
