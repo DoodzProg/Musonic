@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.3] - 2026-07-19
+
+### Added
+- **My Music** — new pinned Library entry (right after Liked Songs) to browse and play the entire native Navidrome library. Full library fetched once via paginated `search3.view`, filterable by a client-side search bar; Shuffle/Play respect the current search filter.
+- **Liked Songs recommendations** — "Recommended tracks" button opens a new screen with up to 50 tracks based on your liked songs (Deezer top tracks of your most-liked artists + Navidrome `getSimilarSongs`), each with like/add-to-playlist/download actions.
+- **Liked Songs action icons** — like, add-to-playlist, and download icons added to every row (previously only a 3-dot menu).
+- **Liked Songs search** — Spotify-style top search bar (non-sticky), filters the list and syncs with Play.
+
+### Changed
+- **Liked Songs header redesign** — cover/heart hero removed from the detail screen (kept on the Library tile); replaced with a plain text title, gradient scoped to just behind the search bar/title, "Recommended tracks" moved into the main action row.
+
+### Fixed
+- **Missing Subsonic scrobble** — Musonic now sends `scrobble.view` (now playing + submission) on playback; Navidrome "Recently Played" and the Home recents section finally reflect app usage, not just the web player.
+- **Album star silently failing on multi-track `ext-` albums** — `AlbumDetail`'s "+" now imports every unindexed track and resolves the real Navidrome album id before starring, instead of starring the fake `ext-` id and showing a false "added" toast.
+- **Audio going silent mid-drive with crossfade enabled** — crossfade's JS-timer-based volume fade could get throttled by Android once the app is backgrounded (e.g. navigation app in foreground), leaving volume stuck at 0 indefinitely while playback kept advancing silently. Crossfade now only runs while the app is foregrounded; a safety net forces full volume if backgrounding happens mid-fade.
+- **Per-account cache leakage** — `playlistCacheStore` and `searchHistoryStore` are now cleared and refetched when the active server/account changes, so a second Navidrome account on the same device no longer sees the previous account's playlist-membership hints or search history.
+- **"Recommended tracks" navigation crash from Home** — `LikedRecommendations` route was only registered in the Library stack; reaching Liked Songs from the Home tab and tapping the button threw a navigation error.
+
 ## [1.0.2] - 2026-05-22
 
 ### Added
