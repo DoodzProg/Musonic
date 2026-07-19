@@ -4,13 +4,14 @@
  *   skip, seek, stop) fired from lock screen / notification buttons while the
  *   app is backgrounded or killed.
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.3
  * @license CC-BY-NC-4.0
  */
 import TrackPlayer, {Event, State} from 'react-native-track-player';
 import {useSettingsStore} from '../store/settingsStore';
 import {usePlayerStore} from '../store/playerStore';
 import {useDownloadStore} from '../store/downloadStore';
+import {subsonicGet} from '../api/client';
 import {fetchAutoplayTracks, toRNTPTrack} from './playerActions';
 import type {Track} from '../store/playerStore';
 
@@ -20,6 +21,50 @@ let fadeInTimer: ReturnType<typeof setInterval> | null = null;
 let fadeOutTimer: ReturnType<typeof setInterval> | null = null;
 let progressPoller: ReturnType<typeof setInterval> | null = null;
 let fadeOutStarted = false;
+
+// Subsonic scrobble: "now playing" is sent immediately on track start; the
+// "submission" scrobble (counts as a real play server-side / forwarded to
+// Last.fm by Navidrome) requires the Last.fm convention — played past the
+// lesser of 50% of duration or 4 minutes, tracks under 30s never qualify.
+const SCROBBLE_MIN_DURATION = 30;
+const SCROBBLE_MAX_THRESHOLD = 240;
+let scrobbleTrack: {id: string; duration: number} | null = null;
+let scrobblePosition = 0;
+let scrobblePoller: ReturnType<typeof setInterval> | null = null;
+
+function resolveScrobbleId(trackId: string): string | undefined {
+  if (!trackId.startsWith('ext-')) return trackId;
+  // Only scrobble Deezer tracks that were already imported into Navidrome
+  // via the stream+poll flow (like/playlist-add) — never force an import
+  // just to scrobble.
+  return usePlayerStore.getState().localImportedIds[trackId];
+}
+
+function stopScrobblePoller() {
+  if (scrobblePoller) { clearInterval(scrobblePoller); scrobblePoller = null; }
+}
+
+function startScrobblePoller() {
+  stopScrobblePoller();
+  scrobblePoller = setInterval(async () => {
+    try {
+      const {position} = await TrackPlayer.getProgress();
+      scrobblePosition = position;
+    } catch { /* no active track — ignore */ }
+  }, 1000);
+}
+
+async function submitScrobbleIfEligible() {
+  stopScrobblePoller();
+  const track = scrobbleTrack;
+  scrobbleTrack = null;
+  if (!track || track.duration < SCROBBLE_MIN_DURATION) return;
+  const threshold = Math.min(track.duration * 0.5, SCROBBLE_MAX_THRESHOLD);
+  if (scrobblePosition < threshold) return;
+  const scrobbleId = resolveScrobbleId(track.id);
+  if (!scrobbleId) return;
+  subsonicGet('scrobble.view', {id: scrobbleId, submission: true}).catch(() => {});
+}
 
 function clearAll() {
   if (fadeInTimer) { clearInterval(fadeInTimer); fadeInTimer = null; }
@@ -90,6 +135,11 @@ export async function PlaybackService() {
   TrackPlayer.addEventListener(Event.RemoteSeek, ({position}) =>
     TrackPlayer.seekTo(position),
   );
+  TrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
+    // Last track in queue finished — no further PlaybackActiveTrackChanged
+    // will fire to trigger the submission scrobble, so flush it here.
+    submitScrobbleIfEligible();
+  });
   TrackPlayer.addEventListener(Event.RemoteDuck, async ({permanent, paused}) => {
     if (permanent || paused) {
       const {state} = await TrackPlayer.getPlaybackState();
@@ -101,6 +151,8 @@ export async function PlaybackService() {
     }
   });
   TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, async () => {
+    await submitScrobbleIfEligible();
+
     const {crossfadeDuration, isAutoplayEnabled, isAutoDownloadEnabled} = useSettingsStore.getState();
     clearAll();
     if (crossfadeDuration > 0) {
@@ -125,6 +177,21 @@ export async function PlaybackService() {
         }
       } catch { /* silent */ }
     }
+
+    try {
+      const activeTrack = await TrackPlayer.getActiveTrack();
+      if (activeTrack) {
+        const id = String(activeTrack.id);
+        const duration = Number(activeTrack.duration ?? 0);
+        scrobbleTrack = {id, duration};
+        scrobblePosition = 0;
+        startScrobblePoller();
+        const scrobbleId = resolveScrobbleId(id);
+        if (scrobbleId) {
+          subsonicGet('scrobble.view', {id: scrobbleId, submission: false}).catch(() => {});
+        }
+      }
+    } catch { /* silent */ }
 
     if (!isAutoplayEnabled || isLoadingAutoplay) return;
     const {repeatMode, setUpcoming} = usePlayerStore.getState();
