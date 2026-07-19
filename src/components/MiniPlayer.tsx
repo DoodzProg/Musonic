@@ -1,9 +1,10 @@
 /**
  * @file MiniPlayer.tsx
- * @description Sticky mini player bar shown at the bottom of main screens.
- *   Supports swipe-left/right to skip tracks and tap to open the full-screen player.
+ * @description Sticky mini player shown at the bottom of main screens in
+ *   portrait (swipe-left/right to skip, tap to open the full-screen player),
+ *   or as a compact tile attached to the nav sidebar in landscape.
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.4
  * @license CC-BY-NC-4.0
  */
 import React, {useCallback, useRef, useState} from 'react';
@@ -26,6 +27,9 @@ import {blendWithBlack} from '../utils/colorUtils';
 import {darkTheme} from '../theme';
 import {useT} from '../i18n';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useIsLandscape} from '../hooks/useIsLandscape';
+import {useSettingsStore} from '../store/settingsStore';
+import {SIDEBAR_WIDTH} from '../navigation/shellConstants';
 
 const TAB_BAR_HEIGHT = 60;
 
@@ -70,6 +74,8 @@ function PlusCircleOutline() {
 export default function MiniPlayer() {
   const t = useT();
   const insets = useSafeAreaInsets();
+  const isLandscape = useIsLandscape();
+  const navBarPosition = useSettingsStore(s => s.navBarPosition);
   // RNTP native hooks — react directly to native engine
   const currentTrack = useActiveTrack();
   const {state} = usePlaybackState();
@@ -114,7 +120,7 @@ export default function MiniPlayer() {
         showToast(wasLiked ? t.likes.removedFromLiked : t.likes.addedToLiked);
       }
     }
-  }, [trackId, localLikeOverrides, likedSongIds, toggleLike, t]);
+  }, [trackId, localLikeOverrides, likedSongIds, toggleLike, t, currentTrack?.title, currentTrack?.artist]);
 
   const handleMiniSwipe = (direction: 'next' | 'prev') => {
     const exitX = direction === 'next' ? -52 : 52;
@@ -153,6 +159,40 @@ export default function MiniPlayer() {
   const dur = currentTrack.duration ?? 1;
   const progressFraction = Math.min(position / dur, 1);
   const bgColor = blendWithBlack(dominantColor, 0.45);
+
+  // Landscape: compact tile attached to the bottom of the nav sidebar (same
+  // edge/width) instead of a full-width bar floating above the bottom tab bar
+  // — there is no bottom tab bar in landscape to float above anymore.
+  if (isLandscape) {
+    return (
+      <>
+        <TouchableOpacity
+          style={[
+            styles.landscapeContainer,
+            navBarPosition === 'right' ? styles.landscapeRight : styles.landscapeLeft,
+            {bottom: insets.bottom + 12, backgroundColor: bgColor},
+          ]}
+          onPress={openFullScreen}
+          activeOpacity={0.85}>
+          <CoverArt id={currentTrack.coverArt as string | undefined} size={SIDEBAR_WIDTH - 16} borderRadius={6} />
+          <TouchableOpacity
+            style={styles.landscapePlayBtn}
+            onPress={togglePlay}
+            hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
+            {isPlaying ? <PauseIcon size={16} /> : <PlayIcon size={16} color="#fff" />}
+          </TouchableOpacity>
+        </TouchableOpacity>
+
+        <AddToPlaylistSheet
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          trackId={currentTrack.id}
+          trackTitle={currentTrack.title ?? ''}
+          onToast={showToast}
+        />
+      </>
+    );
+  }
 
   return (
     <>
@@ -283,5 +323,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     paddingRight: 6,
+  },
+  landscapeContainer: {
+    position: 'absolute',
+    width: SIDEBAR_WIDTH,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    zIndex: 10,
+  },
+  landscapeLeft: {left: 0},
+  landscapeRight: {right: 0},
+  landscapePlayBtn: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

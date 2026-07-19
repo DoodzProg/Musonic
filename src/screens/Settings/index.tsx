@@ -1,9 +1,10 @@
 /**
  * @file index.tsx
  * @description Settings screen. Language picker, player style (classic / waveform),
- *   crossfade duration, mono audio toggle, and screen rotation lock.
+ *   crossfade duration, mono audio toggle, screen rotation lock, and landscape
+ *   navigation bar position (shown only while rotation is unlocked).
  * @author DoodzProg
- * @version 1.0.0
+ * @version 1.0.4
  * @license MIT
  */
 
@@ -65,6 +66,25 @@ function PhoneRotateIcon({locked}: {locked: boolean}) {
   );
 }
 
+function NavBarSideIcon({onRight, active}: {onRight: boolean; active: boolean}) {
+  const color = active ? '#FF6B35' : '#A7A7A7';
+  return (
+    <Svg width={44} height={28} viewBox="0 0 44 28" style={styles.navBarSideIcon}>
+      {/* Landscape screen outline */}
+      <Rect x={1} y={1} width={42} height={26} rx={3} stroke={color} strokeWidth={1.5} fill="none" />
+      {/* Sidebar bar, on the matching edge */}
+      <Rect
+        x={onRight ? 33 : 1}
+        y={1}
+        width={10}
+        height={26}
+        rx={2}
+        fill={color}
+      />
+    </Svg>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -77,6 +97,8 @@ export default function SettingsScreen() {
     setCrossfadeDuration,
     rotationLocked,
     setRotationLocked,
+    navBarPosition,
+    setNavBarPosition,
     isAutoplayEnabled,
     setIsAutoplayEnabled,
     isAutoDownloadEnabled,
@@ -274,6 +296,32 @@ export default function SettingsScreen() {
           />
         </View>
 
+        {!rotationLocked && (
+          <>
+            <Text style={styles.sectionTitle}>{t.settings.display.navBarPositionLabel}</Text>
+            <View style={styles.languagePicker}>
+              <TouchableOpacity
+                style={[styles.langPill, navBarPosition === 'left' && styles.langPillActive]}
+                onPress={() => setNavBarPosition('left')}
+                activeOpacity={0.8}>
+                <NavBarSideIcon onRight={false} active={navBarPosition === 'left'} />
+                <Text style={[styles.langPillText, navBarPosition === 'left' && styles.langPillTextActive]}>
+                  {t.settings.display.navBarLeft}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.langPill, navBarPosition === 'right' && styles.langPillActive]}
+                onPress={() => setNavBarPosition('right')}
+                activeOpacity={0.8}>
+                <NavBarSideIcon onRight={true} active={navBarPosition === 'right'} />
+                <Text style={[styles.langPillText, navBarPosition === 'right' && styles.langPillTextActive]}>
+                  {t.settings.display.navBarRight}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
         {/* About / Updates section */}
         <Text style={styles.sectionTitle}>{t.settings.updates.sectionTitle}</Text>
 
@@ -437,6 +485,9 @@ const styles = StyleSheet.create({
   langPillActive: {
     borderColor: '#FF6B35',
     backgroundColor: '#2A1A10',
+  },
+  navBarSideIcon: {
+    marginBottom: 8,
   },
   langPillText: {
     color: '#A7A7A7',

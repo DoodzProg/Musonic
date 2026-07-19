@@ -2,17 +2,24 @@
  * @file TabNavigator.tsx
  * @description Bottom tab navigator with three tabs: Home, Search, Library.
  *   Each tab hosts its own stack so deep-link screens (AlbumDetail, ArtistDetail)
- *   are reachable from any tab without cross-stack navigation.
+ *   are reachable from any tab without cross-stack navigation. Fully custom
+ *   `tabBar` render: a classic bottom row in portrait, a vertical sidebar
+ *   (left or right, per settings) in landscape — same navigator state/behavior,
+ *   only the visual arrangement differs.
  * @author DoodzProg
- * @version 1.0.0
+ * @version 1.0.4
  * @license CC-BY-NC-4.0
  */
-import React from 'react';
-import {StyleSheet, View} from 'react-native';
+import React, {useCallback} from 'react';
+import {StyleSheet, View, TouchableOpacity, Text} from 'react-native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
+import type {BottomTabBarProps} from '@react-navigation/bottom-tabs';
 import LinearGradient from 'react-native-linear-gradient';
 import {useSafeAreaInsets} from 'react-native-safe-area-context';
 import {useT} from '../i18n';
+import {useSettingsStore} from '../store/settingsStore';
+import {useIsLandscape} from '../hooks/useIsLandscape';
+import {TAB_H, SIDEBAR_WIDTH} from './shellConstants';
 import HomeStack from './HomeStack';
 import SearchStack from './SearchStack';
 import LibraryStack from './LibraryStack';
@@ -28,7 +35,6 @@ import {useImageColor} from '../hooks/useImageColor';
 
 const Tab = createBottomTabNavigator();
 
-const TAB_H = 60;
 const ICON_SIZE = 24;
 const COLOR_ACTIVE = '#FFFFFF';
 const COLOR_INACTIVE = '#707070';
@@ -45,30 +51,86 @@ function LibraryTabIcon({focused}: TabIconProps) {
   return <LibraryIcon size={ICON_SIZE} color={focused ? COLOR_ACTIVE : COLOR_INACTIVE} filled={focused} />;
 }
 
+// ─── Custom tab bar (portrait bottom row / landscape sidebar) ─────────────────
+
+function AppTabBar({state, descriptors, navigation}: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
+  const isLandscape = useIsLandscape();
+  const navBarPosition = useSettingsStore(s => s.navBarPosition);
+
+  const handlePress = (route: (typeof state.routes)[number], isFocused: boolean) => {
+    const event = navigation.emit({type: 'tabPress', target: route.key, canPreventDefault: true});
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  if (isLandscape) {
+    return (
+      <View
+        style={[
+          styles.sidebar,
+          navBarPosition === 'right' ? styles.sidebarRight : styles.sidebarLeft,
+          {paddingTop: insets.top + 16},
+        ]}>
+        {state.routes.map((route, index) => {
+          const {options} = descriptors[route.key];
+          const isFocused = state.index === index;
+          const Icon = options.tabBarIcon as React.ComponentType<TabIconProps> | undefined;
+          return (
+            <TouchableOpacity
+              key={route.key}
+              onPress={() => handlePress(route, isFocused)}
+              style={styles.sidebarItem}
+              activeOpacity={0.7}>
+              {Icon && <Icon focused={isFocused} color={isFocused ? COLOR_ACTIVE : COLOR_INACTIVE} size={ICON_SIZE} />}
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.bottomBar, {height: TAB_H + insets.bottom, paddingBottom: 8 + insets.bottom}]}>
+      {state.routes.map((route, index) => {
+        const {options} = descriptors[route.key];
+        const isFocused = state.index === index;
+        const Icon = options.tabBarIcon as React.ComponentType<TabIconProps> | undefined;
+        const label = options.tabBarLabel as string;
+        return (
+          <TouchableOpacity
+            key={route.key}
+            onPress={() => handlePress(route, isFocused)}
+            style={styles.bottomBarItem}
+            activeOpacity={0.7}>
+            {Icon && <Icon focused={isFocused} color={isFocused ? COLOR_ACTIVE : COLOR_INACTIVE} size={ICON_SIZE} />}
+            <Text style={[styles.bottomBarLabel, {color: isFocused ? COLOR_ACTIVE : COLOR_INACTIVE}]}>
+              {label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
+// ─── Navigator ─────────────────────────────────────────────────────────────────
+
 export default function TabNavigator() {
   const t = useT();
   const insets = useSafeAreaInsets();
+  const isLandscape = useIsLandscape();
   useImageColor();
 
   const tabBarHeight = TAB_H + insets.bottom;
+  const renderTabBar = useCallback((props: BottomTabBarProps) => <AppTabBar {...props} />, []);
 
   return (
     <View style={styles.fill}>
       <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: {
-            position: 'absolute',
-            borderTopWidth: 0,
-            elevation: 0,
-            backgroundColor: '#000000',
-            height: tabBarHeight,
-            paddingBottom: 8 + insets.bottom,
-          },
-          tabBarActiveTintColor: COLOR_ACTIVE,
-          tabBarInactiveTintColor: COLOR_INACTIVE,
-          tabBarLabelStyle: {fontSize: 11, fontWeight: '600'},
-        }}>
+        screenOptions={{headerShown: false}}
+        tabBar={renderTabBar}>
         <Tab.Screen
           name="Home"
           component={HomeStack}
@@ -107,13 +169,15 @@ export default function TabNavigator() {
         />
       </Tab.Navigator>
 
-      {/* Gradient fade — transparent → black, juste au-dessus de la tab bar */}
-      <View style={[styles.bottomFade, {bottom: tabBarHeight}]} pointerEvents="none">
-        <LinearGradient
-          colors={['transparent', '#000000']}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
+      {/* Gradient fade — transparent → black, juste au-dessus de la tab bar (portrait only) */}
+      {!isLandscape && (
+        <View style={[styles.bottomFade, {bottom: tabBarHeight}]} pointerEvents="none">
+          <LinearGradient
+            colors={['transparent', '#000000']}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      )}
 
       <ConnectivityMonitor />
       <AudioPlayer />
@@ -132,5 +196,43 @@ const styles = StyleSheet.create({
     right: 0,
     height: 56,
     zIndex: 6,
+  },
+  bottomBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    borderTopWidth: 0,
+    backgroundColor: '#000000',
+    paddingTop: 8,
+  },
+  bottomBarItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 4,
+  },
+  bottomBarLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  sidebar: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: SIDEBAR_WIDTH,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    gap: 28,
+    zIndex: 10,
+  },
+  sidebarLeft: {left: 0},
+  sidebarRight: {right: 0},
+  sidebarItem: {
+    width: SIDEBAR_WIDTH,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
   },
 });

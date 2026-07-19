@@ -3,7 +3,7 @@
  * @description English UI strings. Mirrors the structure of fr.ts exactly.
  *   Swap the active locale in i18n/index.ts to enable English.
  * @author DoodzProg
- * @version 1.0.3
+ * @version 1.0.4
  * @license CC-BY-NC-4.0
  */
 export const en = {
@@ -55,7 +55,7 @@ export const en = {
       `Log out of:\n\n${name}\n${url}`,
     logoutConfirm: 'Log out',
     cancelButton: 'Cancel',
-    goOffline: 'Go offline (Beta)',
+    goOffline: 'Go offline',
     goOnline: 'Back online',
     offlineActive: 'Active',
     pingFailed: 'Cannot connect to server',
@@ -327,8 +327,8 @@ export const en = {
   offline: {
     noInternet: 'No internet connection',
     serverUnreachable: 'Server unreachable',
-    offlineModeActive: 'Offline mode (Beta)',
-    goOffline: 'Offline mode (Beta)',
+    offlineModeActive: 'Offline mode',
+    goOffline: 'Offline mode',
   },
 
   // ─── Settings ──────────────────────────────────────────────────────────────
@@ -343,7 +343,7 @@ export const en = {
       playback: 'Playback controls',
 
       display: 'Display',
-      offline: 'Offline mode (Beta)',
+      offline: 'Offline mode',
     },
     player: {
       progressLabel: 'Progress bar style',
@@ -370,6 +370,9 @@ export const en = {
     display: {
       lockRotationLabel: 'Lock screen rotation',
       lockRotationDesc: 'Force portrait mode, even when the phone is tilted.',
+      navBarPositionLabel: 'Navigation bar (landscape mode)',
+      navBarLeft: 'Left',
+      navBarRight: 'Right',
     },
     offline: {
       autoOnlineLabel: 'Automatic reconnection',

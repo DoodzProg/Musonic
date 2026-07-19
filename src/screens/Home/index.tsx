@@ -49,6 +49,7 @@ import GlobalHeader from '../../components/GlobalHeader';
 import {useT} from '../../i18n';
 import {useNetworkStore} from '../../store/networkStore';
 import {useSettingsStore} from '../../store/settingsStore';
+import {useLandscapeSidebarPadding} from '../../hooks/useLandscapeSidebarPadding';
 
 type FilterKey = 'all' | 'recent' | 'frequent' | 'reco' | 'discover';
 
@@ -104,6 +105,7 @@ export default function HomeScreen() {
 
   const playlistVersion = usePlayerStore(s => s.playlistVersion);
   const isOfflineMode = useSettingsStore(s => s.isOfflineMode);
+  const landscapePadding = useLandscapeSidebarPadding();
 
   const navigation = useNavigation<any>();
 
@@ -267,7 +269,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
+    <SafeAreaView style={[styles.root, landscapePadding]} edges={['top']}>
       <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
 
       <GlobalHeader

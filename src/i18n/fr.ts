@@ -4,7 +4,7 @@
  *   Add keys here first, then mirror them in en.ts. The i18n/index.ts hook
  *   selects the active locale based on settingsStore.language.
  * @author DoodzProg
- * @version 1.0.3
+ * @version 1.0.4
  * @license CC-BY-NC-4.0
  */
 // French UI strings — single source of truth for all user-visible text.
@@ -58,7 +58,7 @@ export const t = {
       `Voulez-vous vous déconnecter de :\n\n${name}\n${url}`,
     logoutConfirm: 'Déconnecter',
     cancelButton: 'Annuler',
-    goOffline: 'Passer hors-ligne (Bêta)',
+    goOffline: 'Passer hors-ligne',
     goOnline: 'Repasser en ligne',
     offlineActive: 'Actif',
     pingFailed: 'Connexion impossible',
@@ -332,8 +332,8 @@ export const t = {
   offline: {
     noInternet: 'Pas de connexion internet',
     serverUnreachable: 'Serveur injoignable',
-    offlineModeActive: 'Mode hors-ligne (Bêta)',
-    goOffline: 'Mode hors-ligne (Bêta)',
+    offlineModeActive: 'Mode hors-ligne',
+    goOffline: 'Mode hors-ligne',
   },
 
   // ─── Settings ──────────────────────────────────────────────────────────────
@@ -348,7 +348,7 @@ export const t = {
       playback: "Contrôles d'écoute",
 
       display: 'Affichage',
-      offline: 'Mode hors-ligne (Bêta)',
+      offline: 'Mode hors-ligne',
     },
     player: {
       progressLabel: 'Style de la barre de progression',
@@ -377,6 +377,9 @@ export const t = {
       lockRotationLabel: "Verrouiller la rotation de l'écran",
       lockRotationDesc:
         "Force l'affichage en portrait, même si le téléphone est penché.",
+      navBarPositionLabel: 'Barre de navigation (mode paysage)',
+      navBarLeft: 'Gauche',
+      navBarRight: 'Droite',
     },
     offline: {
       autoOnlineLabel: 'Reconnexion automatique',

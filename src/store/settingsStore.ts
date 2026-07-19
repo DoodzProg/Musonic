@@ -1,11 +1,11 @@
 /**
  * @file settingsStore.ts
  * @description Zustand + MMKV store for user preferences: server credentials,
- *   language, waveform display, crossfade, mono audio, and rotation lock.
- *   Persisted across restarts; consumed by RootNavigator to gate the server-setup
- *   flow.
+ *   language, waveform display, crossfade, mono audio, rotation lock, and
+ *   landscape nav bar position. Persisted across restarts; consumed by
+ *   RootNavigator to gate the server-setup flow.
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.4
  * @license CC-BY-NC-4.0
  */
 import {create} from 'zustand';
@@ -15,6 +15,7 @@ import {mmkvStorage} from './storage';
 export type ColorScheme = 'dark' | 'light' | 'system';
 export type Locale = 'fr' | 'en';
 export type LibrarySortMode = 'recent' | 'added' | 'alpha' | 'custom';
+export type NavBarPosition = 'left' | 'right';
 
 export type Server = {
   id: string;
@@ -44,6 +45,8 @@ type SettingsState = {
   setUseWaveformScrubber: (use: boolean) => void;
   rotationLocked: boolean;
   setRotationLocked: (locked: boolean) => void;
+  navBarPosition: NavBarPosition;
+  setNavBarPosition: (position: NavBarPosition) => void;
   isAutoplayEnabled: boolean;
   setIsAutoplayEnabled: (enabled: boolean) => void;
   isAutoDownloadEnabled: boolean;
@@ -85,6 +88,8 @@ export const useSettingsStore = create<SettingsState>()(
       setUseWaveformScrubber: use => set({useWaveformScrubber: use}),
       rotationLocked: false,
       setRotationLocked: locked => set({rotationLocked: locked}),
+      navBarPosition: 'left',
+      setNavBarPosition: position => set({navBarPosition: position}),
       isAutoplayEnabled: true,
       setIsAutoplayEnabled: enabled => set({isAutoplayEnabled: enabled}),
       isAutoDownloadEnabled: false,
