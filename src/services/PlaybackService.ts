@@ -7,6 +7,7 @@
  * @version 1.0.3
  * @license CC-BY-NC-4.0
  */
+import {AppState} from 'react-native';
 import TrackPlayer, {Event, State} from 'react-native-track-player';
 import {useSettingsStore} from '../store/settingsStore';
 import {usePlayerStore} from '../store/playerStore';
@@ -128,6 +129,17 @@ function startProgressPoller(durationSeconds: number) {
 }
 
 export async function PlaybackService() {
+  // Safety net: if the app is backgrounded while a fade is already running
+  // (started while foregrounded, then the user switched to Waze mid-fade),
+  // force full volume immediately instead of leaving the JS fade timer to
+  // possibly get throttled mid-ramp.
+  AppState.addEventListener('change', nextState => {
+    if (nextState !== 'active' && (fadeInTimer || fadeOutTimer)) {
+      clearAll();
+      TrackPlayer.setVolume(1).catch(() => {});
+    }
+  });
+
   TrackPlayer.addEventListener(Event.RemotePlay, () => TrackPlayer.play());
   TrackPlayer.addEventListener(Event.RemotePause, () => TrackPlayer.pause());
   TrackPlayer.addEventListener(Event.RemoteNext, () => TrackPlayer.skipToNext());
@@ -155,7 +167,12 @@ export async function PlaybackService() {
 
     const {crossfadeDuration, isAutoplayEnabled, isAutoDownloadEnabled} = useSettingsStore.getState();
     clearAll();
-    if (crossfadeDuration > 0) {
+    // Crossfade ramps volume via a JS setInterval — Android throttles JS timers
+    // hard once the app is backgrounded (e.g. Waze in foreground during a
+    // drive), which can leave volume stuck at 0 indefinitely (track keeps
+    // playing/advancing natively, just silently). Only fade while foregrounded,
+    // where JS timers are reliable; jump straight to full volume otherwise.
+    if (crossfadeDuration > 0 && AppState.currentState === 'active') {
       startFadeIn(crossfadeDuration);
       startProgressPoller(crossfadeDuration);
     } else {
