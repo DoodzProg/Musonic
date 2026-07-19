@@ -1,17 +1,20 @@
 /**
  * @file RootNavigator.tsx
  * @description Root navigator. Gates between ServerSetup (no credentials) and
- *   the main DrawerContainer. Also locks screen orientation based on user
- *   settings and manages the full-screen player overlay.
+ *   the main DrawerContainer. Locks screen orientation based on user settings,
+ *   manages the full-screen player overlay, and clears per-account local caches
+ *   (playlist membership, search history) when the active server/account changes.
  * @author DoodzProg
- * @version 1.0.0
+ * @version 1.0.3
  * @license CC-BY-NC-4.0
  */
-import React, {useEffect} from 'react';
+import React, {useEffect, useRef} from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import Orientation from 'react-native-orientation-locker';
 import {useSettingsStore} from '../store/settingsStore';
 import {configureClient} from '../api/client';
+import {usePlaylistCacheStore, fetchAndCachePlaylistSongs} from '../store/playlistCacheStore';
+import {useSearchHistoryStore} from '../store/searchHistoryStore';
 import TabNavigator from './TabNavigator';
 import DrawerContainer from '../components/DrawerContainer';
 import ServerSetupScreen from '../screens/ServerSetup';
@@ -42,6 +45,26 @@ export default function RootNavigator() {
       Orientation.unlockAllOrientations();
     }
   }, [rotationLocked]);
+
+  // Per-account local caches: playlist membership + search history are cached
+  // in MMKV keyed by a fixed name (not per-server), so switching the active
+  // account on the same device would otherwise leak the previous account's
+  // data (e.g. "already in playlist" checkmarks from someone else's playlists).
+  const prevServerIdRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const currentId = activeServer?.id ?? null;
+    if (prevServerIdRef.current !== undefined && prevServerIdRef.current !== currentId) {
+      usePlaylistCacheStore.setState({
+        savedTrackIds: [],
+        savedSet: new Set(),
+        cachedPlaylists: [],
+        cachedPlaylistSongs: {},
+      });
+      useSearchHistoryStore.getState().clearHistory();
+      if (currentId) fetchAndCachePlaylistSongs().catch(() => {});
+    }
+    prevServerIdRef.current = currentId;
+  }, [activeServer?.id]);
 
   return (
     <Stack.Navigator screenOptions={{headerShown: false}}>
