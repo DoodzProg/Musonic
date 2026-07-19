@@ -5,7 +5,7 @@
  *   Navidrome getSimilarSongs on native liked tracks, deduped against what's
  *   already liked, shuffled, and capped at 50.
  * @author DoodzProg
- * @version 1.0.3
+ * @version 1.0.4
  * @license MIT
  */
 
@@ -35,6 +35,7 @@ import {getDeezerArtistId, getDeezerArtistTopTracks} from '../../api/deezer';
 import {getStreamUrl, getCoverArtUrl} from '../../api/client';
 import {loadAndPlayTracks, fisherYates} from '../../services/playerActions';
 import {usePlayerStore} from '../../store/playerStore';
+import {useSettingsStore} from '../../store/settingsStore';
 import {usePlaylistCacheStore} from '../../store/playlistCacheStore';
 import {useDownloadStore} from '../../store/downloadStore';
 import type {SubsonicSong} from '../../api/types';
@@ -165,6 +166,7 @@ const SongRow = React.memo(function SongRow({song, onPress, onAddToPlaylist}: So
 export default function LikedRecommendationsScreen() {
   const t = useT();
   const navigation = useNavigation<any>();
+  const isFullscreenMode = useSettingsStore(s => s.isFullscreenMode);
   const localLikeOverrides = usePlayerStore(s => s.localLikeOverrides);
   const [songs, setSongs] = useState<SubsonicSong[]>([]);
   const [loading, setLoading] = useState(true);
@@ -191,7 +193,7 @@ export default function LikedRecommendationsScreen() {
   }, [displayedSongs]);
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
+    <SafeAreaView style={styles.root} edges={isFullscreenMode ? [] : ['top']}>
       <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
 
       <View style={styles.header}>

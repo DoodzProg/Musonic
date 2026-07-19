@@ -6,7 +6,7 @@
  *   single Subsonic "get everything" endpoint exists), then filtered client-side
  *   by the search bar.
  * @author DoodzProg
- * @version 1.0.3
+ * @version 1.0.4
  * @license MIT
  */
 
@@ -38,6 +38,7 @@ import {showToast} from '../../components/Toast';
 import {subsonicGet, getStreamUrl, getCoverArtUrl} from '../../api/client';
 import {loadAndPlayTracks, fisherYates} from '../../services/playerActions';
 import {usePlayerStore} from '../../store/playerStore';
+import {useSettingsStore} from '../../store/settingsStore';
 import {usePlaylistCacheStore} from '../../store/playlistCacheStore';
 import {useDownloadStore} from '../../store/downloadStore';
 import type {SubsonicSong} from '../../api/types';
@@ -145,6 +146,7 @@ const SongRow = React.memo(function SongRow({song, onPress, onAddToPlaylist}: So
 export default function AllSongsScreen() {
   const t = useT();
   const navigation = useNavigation<any>();
+  const isFullscreenMode = useSettingsStore(s => s.isFullscreenMode);
   const isShuffled = usePlayerStore(s => s.isShuffled);
   const shuffleMode = usePlayerStore(s => s.shuffleMode);
   const toggleShuffle = usePlayerStore(s => s.toggleShuffle);
@@ -184,7 +186,7 @@ export default function AllSongsScreen() {
   }, [searchedSongs, isShuffled]);
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
+    <SafeAreaView style={styles.root} edges={isFullscreenMode ? [] : ['top']}>
       <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
 
       <View style={styles.topBar}>

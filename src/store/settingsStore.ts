@@ -1,9 +1,10 @@
 /**
  * @file settingsStore.ts
  * @description Zustand + MMKV store for user preferences: server credentials,
- *   language, waveform display, crossfade, mono audio, rotation lock, and
- *   landscape nav bar position. Persisted across restarts; consumed by
- *   RootNavigator to gate the server-setup flow.
+ *   language, waveform display, crossfade, mono audio, rotation lock, landscape
+ *   nav bar position, fullscreen mode (hides the OS status bar), and the
+ *   landscape full-player cover/progress column order. Persisted across
+ *   restarts; consumed by RootNavigator to gate the server-setup flow.
  * @author DoodzProg
  * @version 1.0.4
  * @license CC-BY-NC-4.0
@@ -16,6 +17,7 @@ export type ColorScheme = 'dark' | 'light' | 'system';
 export type Locale = 'fr' | 'en';
 export type LibrarySortMode = 'recent' | 'added' | 'alpha' | 'custom';
 export type NavBarPosition = 'left' | 'right';
+export type FullPlayerCoverSide = 'left' | 'right';
 
 export type Server = {
   id: string;
@@ -47,6 +49,10 @@ type SettingsState = {
   setRotationLocked: (locked: boolean) => void;
   navBarPosition: NavBarPosition;
   setNavBarPosition: (position: NavBarPosition) => void;
+  isFullscreenMode: boolean;
+  setIsFullscreenMode: (enabled: boolean) => void;
+  fullPlayerCoverSide: FullPlayerCoverSide;
+  setFullPlayerCoverSide: (side: FullPlayerCoverSide) => void;
   isAutoplayEnabled: boolean;
   setIsAutoplayEnabled: (enabled: boolean) => void;
   isAutoDownloadEnabled: boolean;
@@ -90,6 +96,10 @@ export const useSettingsStore = create<SettingsState>()(
       setRotationLocked: locked => set({rotationLocked: locked}),
       navBarPosition: 'left',
       setNavBarPosition: position => set({navBarPosition: position}),
+      isFullscreenMode: false,
+      setIsFullscreenMode: enabled => set({isFullscreenMode: enabled}),
+      fullPlayerCoverSide: 'left',
+      setFullPlayerCoverSide: side => set({fullPlayerCoverSide: side}),
       isAutoplayEnabled: true,
       setIsAutoplayEnabled: enabled => set({isAutoplayEnabled: enabled}),
       isAutoDownloadEnabled: false,

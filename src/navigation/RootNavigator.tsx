@@ -2,13 +2,15 @@
  * @file RootNavigator.tsx
  * @description Root navigator. Gates between ServerSetup (no credentials) and
  *   the main DrawerContainer. Locks screen orientation based on user settings,
- *   manages the full-screen player overlay, and clears per-account local caches
- *   (playlist membership, search history) when the active server/account changes.
+ *   controls global fullscreen mode (OS status bar visibility), manages the
+ *   full-screen player overlay, and clears per-account local caches (playlist
+ *   membership, search history) when the active server/account changes.
  * @author DoodzProg
- * @version 1.0.3
+ * @version 1.0.4
  * @license CC-BY-NC-4.0
  */
 import React, {useEffect, useRef} from 'react';
+import {StatusBar} from 'react-native';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import Orientation from 'react-native-orientation-locker';
 import {useSettingsStore} from '../store/settingsStore';
@@ -31,7 +33,7 @@ function MainWithDrawer() {
 }
 
 export default function RootNavigator() {
-  const {getActiveServer, rotationLocked} = useSettingsStore();
+  const {getActiveServer, rotationLocked, isFullscreenMode} = useSettingsStore();
   const activeServer = getActiveServer();
 
   if (activeServer) {
@@ -67,7 +69,13 @@ export default function RootNavigator() {
   }, [activeServer?.id]);
 
   return (
-    <Stack.Navigator screenOptions={{headerShown: false}}>
+    <>
+      {/* Global fullscreen-mode control — a single source of truth for
+          hiding the OS status bar (clock/wifi/battery/notifications), rather
+          than fighting per-screen <StatusBar barStyle=.../> calls which only
+          ever set barStyle/backgroundColor, never `hidden`. */}
+      <StatusBar hidden={isFullscreenMode} animated />
+      <Stack.Navigator screenOptions={{headerShown: false}}>
       {!activeServer ? (
         <Stack.Screen name="ServerSetup" component={ServerSetupScreen} />
       ) : (
@@ -76,6 +84,7 @@ export default function RootNavigator() {
           <Stack.Screen name="Settings" component={SettingsScreen} options={{ presentation: 'modal' }} />
         </>
       )}
-    </Stack.Navigator>
+      </Stack.Navigator>
+    </>
   );
 }

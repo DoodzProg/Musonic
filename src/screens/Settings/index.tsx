@@ -4,8 +4,8 @@
  *   Downloads, Offline, Display, About) so related controls read as one unit
  *   instead of a flat list. Language picker, player style (classic / waveform),
  *   crossfade duration, autoplay/auto-download, offline auto-reconnect, screen
- *   rotation lock, and landscape navigation bar position (shown only while
- *   rotation is unlocked).
+ *   rotation lock, landscape navigation bar position (shown only while rotation
+ *   is unlocked), and fullscreen mode (hides the OS status bar).
  * @author DoodzProg
  * @version 1.0.4
  * @license MIT
@@ -27,20 +27,13 @@ import {checkForUpdate} from '../../services/updateChecker';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useNavigation} from '@react-navigation/native';
 import Svg, {Path, Circle, Rect, G} from 'react-native-svg';
+import BackArrowIcon from '../../components/icons/BackArrowIcon';
 import {useSettingsStore} from '../../store/settingsStore';
 import {useIsLandscape} from '../../hooks/useIsLandscape';
 import Slider from '@react-native-community/slider';
 import {useT} from '../../i18n';
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
-
-function BackIcon() {
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24">
-      <Path d="M15 19l-7-7 7-7" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-    </Svg>
-  );
-}
 
 // Rotation icon artwork — two hand-picked variants (portrait->landscape arrow
 // vs landscape->portrait arrow), swapped based on the device's CURRENT real
@@ -108,6 +101,36 @@ function NavBarSideIcon({onRight, active}: {onRight: boolean; active: boolean}) 
   );
 }
 
+function PlayerLayoutIcon({coverOnRight, active}: {coverOnRight: boolean; active: boolean}) {
+  const color = active ? '#FF6B35' : '#A7A7A7';
+  const coverX = coverOnRight ? 27 : 3;
+  const barsX = coverOnRight ? 3 : 27;
+  return (
+    <Svg width={44} height={28} viewBox="0 0 44 28" style={styles.navBarSideIcon}>
+      {/* Landscape screen outline */}
+      <Rect x={1} y={1} width={42} height={26} rx={3} stroke={color} strokeWidth={1.5} fill="none" />
+      {/* Cover square on the matching side */}
+      <Rect x={coverX} y={5} width={14} height={18} rx={2} fill={color} />
+      {/* Progress/controls bars on the other side */}
+      <Rect x={barsX} y={8} width={14} height={3} rx={1.5} fill={color} />
+      <Rect x={barsX} y={14} width={14} height={3} rx={1.5} fill={color} />
+      <Rect x={barsX} y={20} width={14} height={3} rx={1.5} fill={color} />
+    </Svg>
+  );
+}
+
+function FullscreenIcon({active}: {active: boolean}) {
+  const color = active ? '#FF6B35' : '#fff';
+  return (
+    <Svg width={26} height={26} viewBox="0 0 24 24">
+      <Path d="M4 9V4h5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Path d="M20 9V4h-5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Path d="M4 15v5h5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <Path d="M20 15v5h-5" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </Svg>
+  );
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function SettingsScreen() {
@@ -122,6 +145,10 @@ export default function SettingsScreen() {
     setRotationLocked,
     navBarPosition,
     setNavBarPosition,
+    isFullscreenMode,
+    setIsFullscreenMode,
+    fullPlayerCoverSide,
+    setFullPlayerCoverSide,
     isAutoplayEnabled,
     setIsAutoplayEnabled,
     isAutoDownloadEnabled,
@@ -137,11 +164,11 @@ export default function SettingsScreen() {
   const ACCENT = '#FF6B35';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={isFullscreenMode ? [] : ['top']}>
       {/* Spotify-style header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.iconBtn}>
-          <BackIcon />
+          <BackArrowIcon size={24} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t.settings.title}</Text>
         <View style={styles.iconBtn} />
@@ -366,6 +393,49 @@ export default function SettingsScreen() {
               </View>
             </>
           )}
+
+          <View style={styles.cardDivider} />
+          <View style={styles.settingRow}>
+            <FullscreenIcon active={isFullscreenMode} />
+            <View style={[styles.textBlock, styles.textBlockIndent]}>
+              <Text style={styles.settingLabel}>{t.settings.display.fullscreenLabel}</Text>
+              <Text style={styles.settingDesc}>{t.settings.display.fullscreenDesc}</Text>
+            </View>
+            <Switch
+              value={isFullscreenMode}
+              onValueChange={setIsFullscreenMode}
+              trackColor={{false: '#535353', true: ACCENT}}
+              thumbColor={Platform.OS === 'android' ? '#fff' : undefined}
+            />
+          </View>
+
+          <View style={styles.cardDivider} />
+          <View style={styles.settingRow}>
+            <View style={styles.textBlock}>
+              <Text style={styles.settingLabel}>{t.settings.display.fullPlayerLayoutLabel}</Text>
+              <Text style={styles.settingDesc}>{t.settings.display.fullPlayerLayoutDesc}</Text>
+            </View>
+          </View>
+          <View style={styles.languagePicker}>
+            <TouchableOpacity
+              style={[styles.langPill, fullPlayerCoverSide === 'left' && styles.langPillActive]}
+              onPress={() => setFullPlayerCoverSide('left')}
+              activeOpacity={0.8}>
+              <PlayerLayoutIcon coverOnRight={false} active={fullPlayerCoverSide === 'left'} />
+              <Text style={[styles.langPillText, fullPlayerCoverSide === 'left' && styles.langPillTextActive]}>
+                {t.settings.display.fullPlayerCoverLeft}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langPill, fullPlayerCoverSide === 'right' && styles.langPillActive]}
+              onPress={() => setFullPlayerCoverSide('right')}
+              activeOpacity={0.8}>
+              <PlayerLayoutIcon coverOnRight={true} active={fullPlayerCoverSide === 'right'} />
+              <Text style={[styles.langPillText, fullPlayerCoverSide === 'right' && styles.langPillTextActive]}>
+                {t.settings.display.fullPlayerCoverRight}
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* ── About ─────────────────────────────────────────────────────── */}

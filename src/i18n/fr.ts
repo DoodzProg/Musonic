@@ -380,6 +380,12 @@ export const t = {
       navBarPositionLabel: 'Barre de navigation (mode paysage)',
       navBarLeft: 'Gauche',
       navBarRight: 'Droite',
+      fullscreenLabel: 'Mode plein écran',
+      fullscreenDesc: "Masquer l'heure, le wifi, la batterie et les notifications en haut de l'écran.",
+      fullPlayerLayoutLabel: 'Disposition du lecteur (horizontal)',
+      fullPlayerLayoutDesc: "Choisir de quel côté afficher la pochette quand le lecteur plein écran est en mode horizontal.",
+      fullPlayerCoverLeft: 'Pochette à gauche',
+      fullPlayerCoverRight: 'Pochette à droite',
     },
     offline: {
       autoOnlineLabel: 'Reconnexion automatique',

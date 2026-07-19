@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
     width: SIDEBAR_WIDTH,
     backgroundColor: '#000000',
     alignItems: 'center',
-    gap: 28,
+    gap: 44,
     zIndex: 10,
   },
   sidebarLeft: {left: 0},

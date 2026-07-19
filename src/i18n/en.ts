@@ -373,6 +373,12 @@ export const en = {
       navBarPositionLabel: 'Navigation bar (landscape mode)',
       navBarLeft: 'Left',
       navBarRight: 'Right',
+      fullscreenLabel: 'Fullscreen mode',
+      fullscreenDesc: 'Hide the clock, Wi-Fi, battery and notifications at the top of the screen.',
+      fullPlayerLayoutLabel: 'Full player layout (landscape)',
+      fullPlayerLayoutDesc: 'Choose which side shows the cover art when the full player is in landscape.',
+      fullPlayerCoverLeft: 'Cover left',
+      fullPlayerCoverRight: 'Cover right',
     },
     offline: {
       autoOnlineLabel: 'Automatic reconnection',

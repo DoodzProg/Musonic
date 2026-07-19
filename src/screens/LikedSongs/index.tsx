@@ -4,7 +4,7 @@
  *   bar, like/add-to-playlist/download actions per row, and remove-from-liked
  *   actions.
  * @author DoodzProg
- * @version 1.0.3
+ * @version 1.0.4
  * @license MIT
  */
 
@@ -32,6 +32,7 @@ import {getStarred} from '../../api/endpoints/library';
 import {getStreamUrl, getCoverArtUrl} from '../../api/client';
 import {loadAndPlayTracks} from '../../services/playerActions';
 import {usePlayerStore} from '../../store/playerStore';
+import {useSettingsStore} from '../../store/settingsStore';
 import {usePlaylistCacheStore} from '../../store/playlistCacheStore';
 import {useDownloadStore} from '../../store/downloadStore';
 import type {SubsonicSong} from '../../api/types';
@@ -148,6 +149,7 @@ const SongRow = React.memo(function SongRow({song, onPress, onMore, onAddToPlayl
 export default function LikedSongsScreen() {
   const t = useT();
   const navigation = useNavigation<any>();
+  const isFullscreenMode = useSettingsStore(s => s.isFullscreenMode);
   const isShuffled = usePlayerStore(s => s.isShuffled);
   const shuffleMode = usePlayerStore(s => s.shuffleMode);
   const toggleShuffle = usePlayerStore(s => s.toggleShuffle);
@@ -210,8 +212,26 @@ export default function LikedSongsScreen() {
   }, [navigation]);
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
+    <SafeAreaView style={styles.root} edges={isFullscreenMode ? [] : ['top']}>
       <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
+
+      {/* Fixed row — back button + search never scroll away, unlike the
+          gradient/title block below which is part of the FlashList header. */}
+      <View style={styles.topBar}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+          <BackArrowIcon />
+        </TouchableOpacity>
+        <View style={styles.searchPill}>
+          <SearchIcon size={16} color="#888" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t.likedSongs.searchPlaceholder}
+            placeholderTextColor="#666"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
+      </View>
 
       <FlashList
         data={searchedSongs}
@@ -222,22 +242,6 @@ export default function LikedSongsScreen() {
             <LinearGradient
               colors={['#3d1870', '#1a1040', darkTheme.background]}
               style={styles.headerGrad}>
-              <View style={styles.topBar}>
-                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-                  <BackArrowIcon />
-                </TouchableOpacity>
-                <View style={styles.searchPill}>
-                  <SearchIcon size={16} color="#888" />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder={t.likedSongs.searchPlaceholder}
-                    placeholderTextColor="#666"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                  />
-                </View>
-              </View>
-
               <View style={styles.titleBlock}>
                 <Text style={styles.title}>{t.likedSongs.title}</Text>
                 <Text style={styles.subtitle}>

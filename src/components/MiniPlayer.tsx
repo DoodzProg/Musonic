@@ -166,22 +166,25 @@ export default function MiniPlayer() {
   if (isLandscape) {
     return (
       <>
-        <TouchableOpacity
+        <View
           style={[
             styles.landscapeContainer,
             navBarPosition === 'right' ? styles.landscapeRight : styles.landscapeLeft,
-            {bottom: insets.bottom + 12, backgroundColor: bgColor},
-          ]}
-          onPress={openFullScreen}
-          activeOpacity={0.85}>
-          <CoverArt id={currentTrack.coverArt as string | undefined} size={SIDEBAR_WIDTH - 16} borderRadius={6} />
+            {bottom: insets.bottom + 12},
+          ]}>
+          <TouchableOpacity
+            style={[styles.landscapeCoverClip, {backgroundColor: bgColor}]}
+            onPress={openFullScreen}
+            activeOpacity={0.85}>
+            <CoverArt id={currentTrack.coverArt as string | undefined} size={SIDEBAR_WIDTH - 20} borderRadius={14} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.landscapePlayBtn}
             onPress={togglePlay}
             hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}>
             {isPlaying ? <PauseIcon size={16} /> : <PlayIcon size={16} color="#fff" />}
           </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
 
         <AddToPlaylistSheet
           visible={sheetOpen}
@@ -326,23 +329,39 @@ const styles = StyleSheet.create({
   },
   landscapeContainer: {
     position: 'absolute',
-    width: SIDEBAR_WIDTH,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
+    width: SIDEBAR_WIDTH - 20,
+    aspectRatio: 1,
     zIndex: 10,
   },
-  landscapeLeft: {left: 0},
-  landscapeRight: {right: 0},
-  landscapePlayBtn: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    width: 28,
-    height: 28,
+  landscapeCoverClip: {
+    width: '100%',
+    height: '100%',
     borderRadius: 14,
-    backgroundColor: 'rgba(0,0,0,0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 4},
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+  },
+  landscapeLeft: {left: 10},
+  landscapeRight: {right: 10},
+  landscapePlayBtn: {
+    position: 'absolute',
+    bottom: -8,
+    right: -8,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: darkTheme.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: {width: 0, height: 2},
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
   },
 });

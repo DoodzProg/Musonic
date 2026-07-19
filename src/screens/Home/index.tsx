@@ -5,7 +5,7 @@
  *   section of similar artists. Supports filter pills, pull-to-refresh, and
  *   auto-recovery when connectivity is restored.
  * @author DoodzProg
- * @version 1.0.0
+ * @version 1.0.1
  * @license MIT
  */
 
@@ -105,6 +105,7 @@ export default function HomeScreen() {
 
   const playlistVersion = usePlayerStore(s => s.playlistVersion);
   const isOfflineMode = useSettingsStore(s => s.isOfflineMode);
+  const isFullscreenMode = useSettingsStore(s => s.isFullscreenMode);
   const landscapePadding = useLandscapeSidebarPadding();
 
   const navigation = useNavigation<any>();
@@ -269,7 +270,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={[styles.root, landscapePadding]} edges={['top']}>
+    <SafeAreaView style={[styles.root, landscapePadding]} edges={isFullscreenMode ? [] : ['top']}>
       <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
 
       <GlobalHeader

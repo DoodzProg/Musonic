@@ -2,9 +2,10 @@
  * @file index.tsx
  * @description Album detail screen. Shows cover art, track listing, artist info,
  *   and playback controls for a specific album. Supports shuffle, star/unstar,
- *   and animated parallax header.
+ *   animated parallax header, and a compact title (album, artist avatar +
+ *   name) that fades into the fixed top bar once the header scrolls away.
  * @author DoodzProg
- * @version 1.0.3
+ * @version 1.0.4
  * @license MIT
  */
 
@@ -22,7 +23,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useHeaderTopInset} from '../../hooks/useHeaderTopInset';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -48,6 +49,8 @@ import type {LibraryStackParams} from '../../navigation/types';
 import type {Track} from '../../store/playerStore';
 import {subsonicGet, getCoverArtUrl, getStreamUrl} from '../../api/client';
 import {getArtistImage} from '../../api/deezer';
+import {useLandscapeSidebarPadding} from '../../hooks/useLandscapeSidebarPadding';
+import {useIsLandscape} from '../../hooks/useIsLandscape';
 import {useT, getT} from '../../i18n';
 import BackArrowIcon from '../../components/icons/BackArrowIcon';
 import PlayIcon from '../../components/icons/PlayIcon';
@@ -61,6 +64,11 @@ import {useDownloadStore} from '../../store/downloadStore';
 const {width: SCREEN_W, height: SCREEN_H} = Dimensions.get('window');
 const COVER_SIZE = Math.min(SCREEN_W - 80, 260);
 const TOP_BAR_H = 52;
+// Landscape header cover — small framed thumbnail, not the huge portrait hero.
+// Frame follows the nested-radius rule: outer radius (14) = inner cover
+// radius (10) + the frame's own padding (4).
+const LANDSCAPE_COVER_SIZE = 100;
+const LANDSCAPE_COVER_RADIUS = 10;
 
 // ─── Color Extraction ────────────────────────────────────────────────────────
 function darkenHex(hex: string): string {
@@ -191,69 +199,119 @@ function SongRow({song, isActive, index, onPress, onMore, onAddToPlaylist, onDow
 function AlbumHeader({
   topBarH, coverArtId, albumName, artistName, artistImageUrl, year,
   isShuffled: _isShuffled, shuffleMode, isStarred, isStarPending, loadingAlbum, coverScale, coverTranslateY,
-  onPlay, onShuffle, onToggleStar, onArtistPress, onMorePress, onDownload,
+  onPlay, onShuffle, onToggleStar, onArtistPress, onMorePress, onDownload, onHeaderLayout,
 }: any) {
   const t = useT();
+  const isLandscape = useIsLandscape();
   const [imageError, setImageError] = useState(false);
+
+  const artistRow = (
+    <TouchableOpacity style={styles.metaRow} onPress={onArtistPress} activeOpacity={0.7}>
+      <View style={styles.artistAvatar}>
+        {artistImageUrl && !imageError ? (
+          <Image source={{uri: artistImageUrl}} style={styles.artistAvatarImg} onError={() => setImageError(true)} />
+        ) : (
+          <Text style={styles.artistAvatarText}>
+            {artistName ? artistName.charAt(0).toUpperCase() : '?'}
+          </Text>
+        )}
+      </View>
+      <Text style={styles.metaArtist} numberOfLines={1}>{artistName || t.artistDetail.unknownArtist}</Text>
+    </TouchableOpacity>
+  );
+
+  const metaActionButtons = (
+    <View style={styles.actionsLeft}>
+      <TouchableOpacity style={styles.actionBtn} onPress={onToggleStar} activeOpacity={0.7} disabled={isStarPending}>
+        {isStarPending ? (
+          <ActivityIndicator size="small" color={darkTheme.accent} />
+        ) : isStarred ? (
+          <CheckCircleGreen size={26} />
+        ) : (
+          <PlusCircleIconComponent size={26} />
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onDownload}>
+        <DownloadIcon size={22} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.actionBtn} onPress={onMorePress} activeOpacity={0.7}>
+        <DotsHorizontalIcon size={22} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const playbackActionButtons = (
+    <View style={styles.actionsRight}>
+      <TouchableOpacity style={styles.actionBtn} onPress={onShuffle} activeOpacity={0.7}>
+        <ShuffleIcon size={24} mode={shuffleMode} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.playBtn} onPress={onPlay} activeOpacity={0.85}>
+        {loadingAlbum
+          ? <ActivityIndicator color="#000" size="small" />
+          : <PlayIcon size={28} color="#000" />}
+      </TouchableOpacity>
+    </View>
+  );
+
+  const actionButtons = (
+    <>
+      {metaActionButtons}
+      {playbackActionButtons}
+    </>
+  );
+
+  // Landscape: compact row (title/actions left, small framed cover right) —
+  // visible immediately, instead of a huge cover you have to scroll past.
+  if (isLandscape) {
+    return (
+      <View onLayout={e => onHeaderLayout?.(e.nativeEvent.layout.height)}>
+        <View style={{height: topBarH + 16}} />
+        <View style={styles.landscapeAlbumRow}>
+          <View style={styles.landscapeAlbumInfo}>
+            <Text style={styles.albumName} numberOfLines={2}>{albumName || '…'}</Text>
+            {artistRow}
+            <Text style={styles.metaSub}>Album • {year || t.albumDetail.unknownYear}</Text>
+            <View style={styles.landscapeActionsRow}>{metaActionButtons}</View>
+          </View>
+          <View style={styles.landscapeCoverCol}>
+            <View style={styles.landscapeCoverFrame}>
+              {coverArtId ? (
+                <CoverArt id={coverArtId} size={LANDSCAPE_COVER_SIZE} borderRadius={LANDSCAPE_COVER_RADIUS} />
+              ) : (
+                <View style={[styles.coverPlaceholder, styles.landscapeCover]} />
+              )}
+            </View>
+            {playbackActionButtons}
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View>
-      <View style={{height: topBarH + 16}} />
-      <View style={styles.coverWrap}>
-        <Animated.View style={[styles.coverShadow, {transform: [{scale: coverScale}, {translateY: coverTranslateY}]}]}>
-          {coverArtId ? (
-            <CoverArt id={coverArtId} size={COVER_SIZE} borderRadius={8} />
-          ) : (
-            <View style={styles.coverPlaceholder} />
-          )}
-        </Animated.View>
-      </View>
-
-      <View style={styles.meta}>
-        <Text style={styles.albumName} numberOfLines={2}>{albumName || '…'}</Text>
-        <TouchableOpacity style={styles.metaRow} onPress={onArtistPress} activeOpacity={0.7}>
-          <View style={styles.artistAvatar}>
-            {artistImageUrl && !imageError ? (
-              <Image source={{uri: artistImageUrl}} style={styles.artistAvatarImg} onError={() => setImageError(true)} />
+      {/* Wrapped together so the parent can measure exactly when this block
+          has scrolled behind the fixed top bar, to fade in the compact title. */}
+      <View onLayout={e => onHeaderLayout?.(e.nativeEvent.layout.height)}>
+        <View style={{height: topBarH + 16}} />
+        <View style={styles.coverWrap}>
+          <Animated.View style={[styles.coverShadow, {transform: [{scale: coverScale}, {translateY: coverTranslateY}]}]}>
+            {coverArtId ? (
+              <CoverArt id={coverArtId} size={COVER_SIZE} borderRadius={8} />
             ) : (
-              <Text style={styles.artistAvatarText}>
-                {artistName ? artistName.charAt(0).toUpperCase() : '?'}
-              </Text>
+              <View style={styles.coverPlaceholder} />
             )}
-          </View>
-          <Text style={styles.metaArtist} numberOfLines={1}>{artistName || t.artistDetail.unknownArtist}</Text>
-        </TouchableOpacity>
-        <Text style={styles.metaSub}>Album • {year || t.albumDetail.unknownYear}</Text>
-      </View>
-
-      <View style={styles.actionsRow}>
-        <View style={styles.actionsLeft}>
-          <TouchableOpacity style={styles.actionBtn} onPress={onToggleStar} activeOpacity={0.7} disabled={isStarPending}>
-            {isStarPending ? (
-              <ActivityIndicator size="small" color={darkTheme.accent} />
-            ) : isStarred ? (
-              <CheckCircleGreen size={26} />
-            ) : (
-              <PlusCircleIconComponent size={26} />
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} activeOpacity={0.7} onPress={onDownload}>
-            <DownloadIcon size={22} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={onMorePress} activeOpacity={0.7}>
-            <DotsHorizontalIcon size={22} />
-          </TouchableOpacity>
+          </Animated.View>
         </View>
-        <View style={styles.actionsRight}>
-          <TouchableOpacity style={styles.actionBtn} onPress={onShuffle} activeOpacity={0.7}>
-            <ShuffleIcon size={24} mode={shuffleMode} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.playBtn} onPress={onPlay} activeOpacity={0.85}>
-            {loadingAlbum
-              ? <ActivityIndicator color="#000" size="small" />
-              : <PlayIcon size={28} color="#000" />}
-          </TouchableOpacity>
+
+        <View style={styles.meta}>
+          <Text style={styles.albumName} numberOfLines={2}>{albumName || '…'}</Text>
+          {artistRow}
+          <Text style={styles.metaSub}>Album • {year || t.albumDetail.unknownYear}</Text>
         </View>
       </View>
+
+      <View style={styles.actionsRow}>{actionButtons}</View>
     </View>
   );
 }
@@ -262,7 +320,8 @@ function AlbumHeader({
 type RouteT = RouteProp<LibraryStackParams, 'AlbumDetail'>;
 
 export default function AlbumDetailScreen() {
-  const insets = useSafeAreaInsets();
+  const topInset = useHeaderTopInset();
+  const landscapePadding = useLandscapeSidebarPadding();
   const navigation = useNavigation<NativeStackNavigationProp<LibraryStackParams, 'AlbumDetail'>>();
   const route = useRoute<RouteT>();
   const {albumId} = route.params;
@@ -292,11 +351,22 @@ export default function AlbumDetailScreen() {
   const toggleShuffle = usePlayerStore(s => s.toggleShuffle);
 
   const dominantColor = useAlbumColor(coverArtId);
-  const topBarH = insets.top + TOP_BAR_H;
+  const topBarH = topInset + TOP_BAR_H;
 
   const scrollY = useRef(new Animated.Value(0)).current;
   const coverScale = scrollY.interpolate({ inputRange: [0, COVER_SIZE], outputRange: [1, 0.55], extrapolate: 'clamp' });
   const coverTranslateY = scrollY.interpolate({ inputRange: [0, COVER_SIZE], outputRange: [0, COVER_SIZE * 0.2], extrapolate: 'clamp' });
+
+  // Height of the cover+title block above the action row, measured via
+  // onLayout in AlbumHeader. Once it has scrolled behind the fixed top bar
+  // (scrollY > headerTopHeight - topBarH), the compact title fades in.
+  const [headerTopHeight, setHeaderTopHeight] = useState(420);
+  const compactFadeEnd = Math.max(1, headerTopHeight - topBarH);
+  const compactTitleOpacity = scrollY.interpolate({
+    inputRange: [Math.max(0, compactFadeEnd - 40), compactFadeEnd],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
 
   useEffect(() => {
     subsonicGet<any>('getAlbum.view', { id: albumId })
@@ -507,11 +577,12 @@ export default function AlbumDetailScreen() {
         useDownloadStore.getState().enqueueBatch(songs);
         showToast(getT().songOptions.downloadQueued);
       }}
+      onHeaderLayout={setHeaderTopHeight}
     />
   ), [topBarH, coverArtId, albumName, artistName, artistImageUrl, year, isShuffled, shuffleMode, isStarred, isStarPending, loadingAlbum, coverScale, coverTranslateY, handlePlay, toggleShuffle, handleToggleStar, handleArtistPress, songs]);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, landscapePadding]}>
       <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <LinearGradient colors={[dominantColor, darkTheme.background]} locations={[0, 0.62]} style={styles.bgGradient} />
 
@@ -530,11 +601,22 @@ export default function AlbumDetailScreen() {
         />
       )}
 
-      <View style={[styles.topBar, {paddingTop: insets.top}]} pointerEvents="box-none">
+      <View style={[styles.topBar, {paddingTop: topInset}, landscapePadding]} pointerEvents="box-none">
+        <Animated.View style={[StyleSheet.absoluteFill, styles.topBarBg, {opacity: compactTitleOpacity}]} pointerEvents="none" />
         <View style={styles.topBarInner}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
             <BackArrowIcon size={24} />
           </TouchableOpacity>
+          <Animated.View style={[styles.compactTitleRow, {opacity: compactTitleOpacity}]} pointerEvents="none">
+            <Text style={styles.compactAlbumName} numberOfLines={1}>{albumName}</Text>
+            <Text style={styles.compactAlbumLabel} numberOfLines={1}>Album</Text>
+            {artistImageUrl ? (
+              <Image source={{uri: artistImageUrl}} style={styles.compactArtistAvatar} />
+            ) : (
+              <View style={styles.compactArtistAvatarPlaceholder} />
+            )}
+            <Text style={styles.compactArtistName} numberOfLines={1}>{artistName}</Text>
+          </Animated.View>
         </View>
       </View>
 
@@ -581,9 +663,28 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: darkTheme.background },
   bgGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: SCREEN_H * 0.62 },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20 },
+  topBarBg: { backgroundColor: darkTheme.background },
   topBarInner: { flexDirection: 'row', alignItems: 'center', height: TOP_BAR_H, paddingHorizontal: 12 },
   backBtn: { padding: 6 },
+  compactTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', marginLeft: 6, gap: 6, overflow: 'hidden' },
+  compactAlbumName: { color: '#fff', fontSize: 15, fontWeight: '800', maxWidth: '42%' },
+  compactAlbumLabel: { color: '#999', fontSize: 11, fontWeight: '600' },
+  compactArtistAvatar: { width: 16, height: 16, borderRadius: 8 },
+  compactArtistAvatarPlaceholder: { width: 16, height: 16, borderRadius: 8, backgroundColor: '#555' },
+  compactArtistName: { color: '#bbb', fontSize: 12, fontWeight: '600', maxWidth: '28%' },
   listContent: { paddingBottom: 150 },
+  landscapeAlbumRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 20, gap: 16, marginBottom: 24 },
+  landscapeAlbumInfo: { flex: 1 },
+  landscapeActionsRow: { flexDirection: 'row', alignItems: 'center', marginTop: 16 },
+  landscapeCoverCol: { alignItems: 'flex-end', gap: 10 },
+  landscapeCoverFrame: {
+    width: LANDSCAPE_COVER_SIZE + 8, height: LANDSCAPE_COVER_SIZE + 8,
+    borderRadius: LANDSCAPE_COVER_RADIUS + 4, padding: 4,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  landscapeCover: { width: LANDSCAPE_COVER_SIZE, height: LANDSCAPE_COVER_SIZE, borderRadius: LANDSCAPE_COVER_RADIUS },
   coverWrap: { alignItems: 'center', paddingHorizontal: 40, marginBottom: 22 },
   coverShadow: { shadowColor: '#000', shadowOffset: {width: 0, height: 14}, shadowOpacity: 0.75, shadowRadius: 22, elevation: 18 },
   meta: { paddingHorizontal: 16, marginBottom: 6 },

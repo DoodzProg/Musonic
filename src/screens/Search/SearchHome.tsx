@@ -5,7 +5,7 @@
  *   based on similar artists from the user's top liked artist.
  *   Recommendations are streamed via OctoFiesta using Deezer IDs as Subsonic IDs.
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.4
  * @license CC-BY-NC-4.0
  */
 import React, {useCallback, useEffect, useRef, useState} from 'react';
@@ -28,6 +28,8 @@ import AlbumCard from '../../components/AlbumCard';
 import SectionHeader from '../../components/SectionHeader';
 import {useT} from '../../i18n';
 import {useSettingsStore} from '../../store/settingsStore';
+import {useLandscapeSidebarPadding} from '../../hooks/useLandscapeSidebarPadding';
+import {useIsLandscape} from '../../hooks/useIsLandscape';
 import {getStarred, getRecentAlbums} from '../../api/endpoints/library';
 import {getStreamUrl, getCoverArtUrl} from '../../api/client';
 import {loadAndPlayTracks} from '../../services/playerActions';
@@ -141,6 +143,9 @@ export default function SearchHome() {
   const t = useT();
   const navigation = useNavigation<any>();
   const isOfflineMode = useSettingsStore(s => s.isOfflineMode);
+  const isFullscreenMode = useSettingsStore(s => s.isFullscreenMode);
+  const landscapePadding = useLandscapeSidebarPadding();
+  const isLandscape = useIsLandscape();
 
   const [reco, setReco] = useState<RecoState>(EMPTY_RECO);
   const [loading, setLoading] = useState(true);
@@ -265,21 +270,31 @@ export default function SearchHome() {
     reco.recentTracks.length > 0 ||
     reco.sameStyleSections.length > 0;
 
-  return (
-    <SafeAreaView style={styles.root} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
-      <GlobalHeader variant="simple" title={t.search.headerTitle} />
+  const searchBar = (
+    <TouchableOpacity
+      style={styles.fakeSearchBar}
+      activeOpacity={0.9}
+      onPress={() => navigation.navigate('SearchActive')}>
+      <SearchIconDark size={24} />
+      <Text style={styles.fakeInputText}>{t.search.placeholder}</Text>
+    </TouchableOpacity>
+  );
 
-      {/* Search bar */}
-      <View style={styles.searchContainer}>
-        <TouchableOpacity
-          style={styles.fakeSearchBar}
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate('SearchActive')}>
-          <SearchIconDark size={24} />
-          <Text style={styles.fakeInputText}>{t.search.placeholder}</Text>
-        </TouchableOpacity>
-      </View>
+  return (
+    <SafeAreaView style={[styles.root, landscapePadding]} edges={isFullscreenMode ? [] : ['top']}>
+      <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
+      <GlobalHeader
+        variant="simple"
+        title={t.search.headerTitle}
+        landscapeInlineExtra={<View style={styles.landscapeSearchBarWrap}>{searchBar}</View>}
+      />
+
+      {/* Search bar — its own row in portrait; inline in the header above in landscape */}
+      {!isLandscape && (
+        <View style={styles.searchContainer}>
+          {searchBar}
+        </View>
+      )}
 
       {/* Recommendation sections */}
       <ScrollView
@@ -427,6 +442,7 @@ export default function SearchHome() {
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: darkTheme.background},
   searchContainer: {paddingHorizontal: 16, paddingBottom: 16, paddingTop: 8},
+  landscapeSearchBarWrap: {marginLeft: 16, marginRight: 16},
   fakeSearchBar: {
     flexDirection: 'row',
     alignItems: 'center',

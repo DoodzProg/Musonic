@@ -4,7 +4,7 @@
  *   interleave. Subsonic results are immediate; Deezer artist images are enriched
  *   asynchronously using a generation counter to prevent race conditions.
  * @author DoodzProg
- * @version 1.0.0
+ * @version 1.0.4
  * @license CC-BY-NC-4.0
  */
 import React, {useState, useEffect, useRef, useCallback, memo} from 'react';
@@ -28,6 +28,8 @@ import SongOptionsSheet from '../../components/SongOptionsSheet';
 import {showToast} from '../../components/Toast';
 import {useT} from '../../i18n';
 import {useSearchHistoryStore, type HistoryItem} from '../../store/searchHistoryStore';
+import {useSettingsStore} from '../../store/settingsStore';
+import {useLandscapeSidebarPadding} from '../../hooks/useLandscapeSidebarPadding';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -220,6 +222,8 @@ export default function SearchActive() {
   const t = useT();
   const navigation = useNavigation<any>();
   const inputRef = useRef<TextInput>(null);
+  const landscapePadding = useLandscapeSidebarPadding();
+  const isFullscreenMode = useSettingsStore(s => s.isFullscreenMode);
 
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -375,7 +379,7 @@ export default function SearchActive() {
   const showNoResults = !loading && items.length === 0 && query.trim().length > 0;
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
+    <SafeAreaView style={[styles.root, landscapePadding]} edges={isFullscreenMode ? [] : ['top']}>
       <StatusBar barStyle="light-content" backgroundColor="#121212" />
 
       <View style={styles.header}>

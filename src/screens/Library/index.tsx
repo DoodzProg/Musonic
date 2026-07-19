@@ -5,7 +5,7 @@
  *   with sort options, pin support, pull-to-refresh, and auto-recovery on
  *   connectivity restore.
  * @author DoodzProg
- * @version 1.0.3
+ * @version 1.0.4
  * @license MIT
  */
 
@@ -27,7 +27,7 @@ import {
   View,
 } from 'react-native';
 import {FlashList} from '@shopify/flash-list';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useHeaderTopInset} from '../../hooks/useHeaderTopInset';
 import {useNavigation} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Svg, {Circle, Path, Rect} from 'react-native-svg';
@@ -559,7 +559,7 @@ export default function LibraryScreen() {
     alpha: t.library.sort.alpha,
   };
 
-  const insets = useSafeAreaInsets();
+  const topInset = useHeaderTopInset();
 
   const navigation =
     useNavigation<NativeStackNavigationProp<LibraryStackParams, 'LibraryHome'>>();
@@ -893,7 +893,7 @@ export default function LibraryScreen() {
   const colWidth = Math.floor((SCREEN_W - 32) / 3);
 
   return (
-    <View style={[styles.root, {paddingTop: insets.top}]}>
+    <View style={[styles.root, {paddingTop: topInset}]}>
       <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
 
       {/* ── Top Header ── */}

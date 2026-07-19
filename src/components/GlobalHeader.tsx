@@ -5,7 +5,7 @@
  *   OfflineBanner is rendered inline at the top (flex flow) to push header
  *   content down instead of overlaying it.
  * @author DoodzProg
- * @version 1.1.0
+ * @version 1.2.0
  * @license CC-BY-NC-4.0
  */
 import React from 'react';
@@ -15,6 +15,7 @@ import Svg, {Defs, LinearGradient, Stop, Rect} from 'react-native-svg';
 import LogoIcon from './icons/LogoIcon';
 import OfflineBanner from './OfflineBanner';
 import {darkTheme} from '../theme';
+import {useIsLandscape} from '../hooks/useIsLandscape';
 
 type Filter = {key: string; label: string};
 
@@ -28,10 +29,18 @@ type Props =
   | {
       variant: 'simple';
       title: string;
+      /**
+       * Rendered inline next to the title in landscape only (e.g. a search
+       * bar) so the header doesn't cost a whole separate row of scarce
+       * vertical space. Ignored in portrait — render it below the header
+       * yourself there instead.
+       */
+      landscapeInlineExtra?: React.ReactNode;
     };
 
 export default function GlobalHeader(props: Props) {
   const {open: openDrawer} = useDrawer();
+  const isLandscape = useIsLandscape();
 
   if (props.variant === 'simple') {
     return (
@@ -42,6 +51,9 @@ export default function GlobalHeader(props: Props) {
             <LogoIcon size={36} />
           </TouchableOpacity>
           <Text style={styles.simpleTitle}>{props.title}</Text>
+          {isLandscape && props.landscapeInlineExtra && (
+            <View style={styles.landscapeExtraSlot}>{props.landscapeInlineExtra}</View>
+          )}
         </View>
       </View>
     );
@@ -155,6 +167,9 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '800',
     color: darkTheme.textPrimary,
+  },
+  landscapeExtraSlot: {
+    flex: 1,
   },
 
   /* Shared */

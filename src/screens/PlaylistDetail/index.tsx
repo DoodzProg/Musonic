@@ -4,7 +4,7 @@
  *   drag-and-drop reordering, inline search, edit mode, recommended track
  *   suggestions, and full CRUD support (add, remove, rename).
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.3
  * @license CC-BY-NC-4.0
  */
 
@@ -23,7 +23,7 @@ import {
   View,
 } from 'react-native';
 import {FlashList} from '@shopify/flash-list';
-import {useSafeAreaInsets} from 'react-native-safe-area-context';
+import {useHeaderTopInset} from '../../hooks/useHeaderTopInset';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import type {RouteProp} from '@react-navigation/native';
 import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
@@ -690,7 +690,7 @@ function OfflineFooter({label, tracks, onPressTrack}: {
 type RouteT = RouteProp<LibraryStackParams, 'PlaylistDetail'>;
 
 export default function PlaylistDetailScreen() {
-  const insets = useSafeAreaInsets();
+  const topInset = useHeaderTopInset();
   const navigation =
     useNavigation<NativeStackNavigationProp<LibraryStackParams, 'PlaylistDetail'>>();
   const route = useRoute<RouteT>();
@@ -749,7 +749,7 @@ export default function PlaylistDetailScreen() {
   }, [activeTrackId]);
 
   const dominantColor = usePlaylistColor(coverArtId);
-  const topBarH = insets.top + TOP_BAR_H;
+  const topBarH = topInset + TOP_BAR_H;
 
   // Parallax animation
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -1211,7 +1211,7 @@ export default function PlaylistDetailScreen() {
             />
           )}
           onDragEnd={({data}) => setEditSongs(data)}
-          contentContainerStyle={[styles.listContent, {paddingTop: insets.top + 56 + 16}]}
+          contentContainerStyle={[styles.listContent, {paddingTop: topInset + 56 + 16}]}
           showsVerticalScrollIndicator={false}
         />
       ) : loading ? (
@@ -1253,13 +1253,13 @@ export default function PlaylistDetailScreen() {
       {/* Fixed top bar — back button / edit header */}
       {isEditing ? (
         <EditHeader
-          topInset={insets.top}
+          topInset={topInset}
           isSaving={isSaving}
           onCancel={handleCancelEdit}
           onSave={handleSaveEdit}
         />
       ) : (
-        <View style={[styles.topBar, {paddingTop: insets.top}]} pointerEvents="box-none">
+        <View style={[styles.topBar, {paddingTop: topInset}]} pointerEvents="box-none">
           <View style={styles.topBarInner}>
             <TouchableOpacity
               style={styles.backBtn}

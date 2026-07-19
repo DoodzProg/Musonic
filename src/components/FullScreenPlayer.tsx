@@ -2,9 +2,11 @@
  * @file FullScreenPlayer.tsx
  * @description Full-screen music player. Ambient halo background (blurred cover),
  *   animated cover art, waveform scrubber, playback controls, lyrics preview,
- *   and queue access.
+ *   and queue access. In landscape, a StandBy-style 40/60 split: a hero cover
+ *   fills its own column (order set by fullPlayerCoverSide), the other column
+ *   carries header, progress, controls, and lyrics top-to-bottom.
  * @author DoodzProg
- * @version 1.0.0
+ * @version 1.1.0
  * @license CC-BY-NC-4.0
  */
 import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -12,13 +14,13 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   Easing,
   Image,
   Modal,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
@@ -53,9 +55,8 @@ import Toast from './Toast';
 import {useT, getT} from '../i18n';
 import type {SubsonicSong} from '../api/types';
 import {getLyricsBySongId, type LyricsData} from '../api/endpoints/library';
+import {useIsLandscape} from '../hooks/useIsLandscape';
 
-const {width: SW, height: SH} = Dimensions.get('window');
-const COVER_SIZE = Math.min(SW - 64, SH * 0.36);
 const HIT = {top: 12, bottom: 12, left: 12, right: 12};
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
@@ -147,6 +148,17 @@ function AmbientBackground({coverArtId}: {coverArtId?: string}) {
 export default function FullScreenPlayer() {
   const t = useT();
   const navigation = useNavigation<any>();
+  const {width: winW, height: winH} = useWindowDimensions();
+  const isLandscape = useIsLandscape();
+  const fullPlayerCoverSide = useSettingsStore(s => s.fullPlayerCoverSide);
+  // Portrait: big hero cover above the track info. Landscape: hero cover
+  // filling its own 40% column (StandBy-style split), capped by both the
+  // column width and the available height so it stays a clean square.
+  // Shrunk to 85% of that cap so the play-state scale-up (see coverScale
+  // below) has room to breathe without touching the screen edges.
+  const COVER_SIZE = isLandscape
+    ? Math.min(winW * 0.4 - 32, winH - 64) * 0.85
+    : Math.min(winW - 64, winH * 0.36);
   // RNTP native hooks — react directly to native engine
   const currentTrack = useActiveTrack();
   const {state} = usePlaybackState();
@@ -204,7 +216,7 @@ export default function FullScreenPlayer() {
     return () => { cancelled = true; };
   }, [currentTrack?.id, currentTrack?.artist, currentTrack?.title, currentTrack?.duration]);
 
-  const translateY = useRef(new Animated.Value(SH)).current;
+  const translateY = useRef(new Animated.Value(winH)).current;
   const [visible, setVisible] = useState(false);
   const coverScale = useRef(new Animated.Value(0.88)).current;
   const [isSeeking, setIsSeeking] = useState(false);
@@ -295,7 +307,7 @@ export default function FullScreenPlayer() {
 
   // Queue sheet
   const [queueVisible, setQueueVisible] = useState(false);
-  const queueSlideY = useRef(new Animated.Value(SH)).current;
+  const queueSlideY = useRef(new Animated.Value(winH)).current;
 
 
   useEffect(() => {
@@ -322,9 +334,9 @@ export default function FullScreenPlayer() {
   const handleClose = useCallback(() => {
     // Close queue if open
     setQueueVisible(false);
-    queueSlideY.setValue(SH);
+    queueSlideY.setValue(winH);
     Animated.timing(translateY, {
-      toValue: SH,
+      toValue: winH,
       duration: 300,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
@@ -332,7 +344,7 @@ export default function FullScreenPlayer() {
       setVisible(false);
       closeFullScreen();
     });
-  }, [translateY, queueSlideY, closeFullScreen]);
+  }, [translateY, queueSlideY, closeFullScreen, winH]);
 
 
   const onArtistPress = useCallback((name: string, id?: string) => {
@@ -361,23 +373,23 @@ export default function FullScreenPlayer() {
 
   const openQueue = useCallback(() => {
     setQueueVisible(true);
-    queueSlideY.setValue(SH);
+    queueSlideY.setValue(winH);
     Animated.timing(queueSlideY, {
       toValue: 0,
       duration: 300,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [queueSlideY]);
+  }, [queueSlideY, winH]);
 
   const closeQueue = useCallback(() => {
     Animated.timing(queueSlideY, {
-      toValue: SH,
+      toValue: winH,
       duration: 250,
       easing: Easing.in(Easing.cubic),
       useNativeDriver: true,
     }).start(() => setQueueVisible(false));
-  }, [queueSlideY]);
+  }, [queueSlideY, winH]);
 
   if (!currentTrack) return null;
 
@@ -398,6 +410,185 @@ export default function FullScreenPlayer() {
   })();
   const displayProgress = isSeeking ? seekValue : position;
 
+  // ── Shared pieces reused by both the portrait and landscape layouts below,
+  // so the orientation branching only changes JSX arrangement, not logic. ──
+  const chevronBtn = (
+    <TouchableOpacity onPress={handleClose} hitSlop={HIT}>
+      <ChevronDownIcon />
+    </TouchableOpacity>
+  );
+
+  const dotsBtn = (
+    <TouchableOpacity hitSlop={HIT} onPress={() => setSongOptionsVisible(true)}>
+      <DotsHorizontalIcon size={24} />
+    </TouchableOpacity>
+  );
+
+  const magicBadgeNode = (currentTrack as any).isMagic ? (
+    <View style={styles.magicBadge}>
+      <TrackMagicIcon size={22} />
+    </View>
+  ) : null;
+
+  const titleNode = (
+    <TextTicker
+      style={isLandscape ? styles.trackTitleLandscape : styles.trackTitle}
+      duration={8000}
+      loop
+      bounce={false}
+      repeatSpacer={50}
+      marqueeDelay={2000}>
+      {currentTrack.title}
+    </TextTicker>
+  );
+
+  const artistNameNode = (
+    <Text style={isLandscape ? styles.trackArtistLandscape : styles.trackArtist} numberOfLines={1}>
+      {(currentTrack.artist ?? '')
+        .split(/,\s+|\s+feat\.?\s+|\s+ft\.?\s+/i)
+        .map((name, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && ', '}
+            <Text
+              onPress={() => onArtistPress(name.trim(), i === 0 ? currentTrack.artistId : undefined)}
+              suppressHighlighting>
+              {name.trim()}
+            </Text>
+          </React.Fragment>
+        ))}
+    </Text>
+  );
+
+  const infoActionsNode = (
+    <View style={isLandscape ? styles.infoActionsLandscape : styles.infoActions}>
+      <TouchableOpacity hitSlop={HIT} onPress={openQueue}>
+        <QueueIcon />
+      </TouchableOpacity>
+      <TouchableOpacity
+        onPress={() => setPlaylistSheetOpen(true)}
+        hitSlop={HIT}>
+        <Svg width={26} height={26} viewBox="0 0 26 26">
+          {inPlaylist ? (
+            <>
+              <Circle cx={13} cy={13} r={12} fill="#1ED760" />
+              <Path d="M7.5 13.5 L11 17 L18.5 9.5" stroke="#000" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+            </>
+          ) : (
+            <>
+              <Circle cx={13} cy={13} r={11.5} stroke="#B3B3B3" strokeWidth={1.5} fill="none" />
+              <Path d="M13 8 L13 18 M8 13 L18 13" stroke="#B3B3B3" strokeWidth={1.8} strokeLinecap="round" fill="none" />
+            </>
+          )}
+        </Svg>
+      </TouchableOpacity>
+      <TouchableOpacity onPress={handleToggleLike} hitSlop={HIT} disabled={pendingLikes.has(fspTrackId)}>
+        {pendingLikes.has(fspTrackId)
+          ? <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" style={styles.likeSpinner} />
+          : <HeartIcon size={26} color={isLiked ? '#E8553E' : 'rgba(255,255,255,0.6)'} filled={isLiked} />}
+      </TouchableOpacity>
+    </View>
+  );
+
+  const coverNode = (
+    <View style={[isLandscape ? styles.coverCenterLandscape : styles.coverCenter, {width: COVER_SIZE, height: COVER_SIZE}]}>
+      <Animated.View style={[styles.coverWrapper, {transform: [{scale: coverScale}]}]}>
+        <CoverArt id={currentTrack.coverArt} size={COVER_SIZE} borderRadius={8} />
+      </Animated.View>
+      {!fspTrackId.startsWith('ext-') && currentTrackAsSong && (
+        <TouchableOpacity
+          style={styles.coverDownloadBtn}
+          hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
+          activeOpacity={0.7}
+          onPress={handleDownloadPress}>
+          <CoverDownloadIcon trackId={fspTrackId} size={28} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
+  const progressNode = useWaveformScrubber ? (
+    <WaveformScrubber
+      trackId={currentTrack.id}
+      duration={dur}
+      currentTime={displayProgress}
+      onSeek={seekTo}
+    />
+  ) : (
+    <View style={styles.sliderSection}>
+      <Slider
+        style={styles.slider}
+        minimumValue={0}
+        maximumValue={dur}
+        value={displayProgress}
+        onValueChange={v => {
+          setIsSeeking(true);
+          setSeekValue(v);
+        }}
+        onSlidingComplete={v => {
+          setIsSeeking(false);
+          seekTo(v);
+        }}
+        minimumTrackTintColor="#FFFFFF"
+        maximumTrackTintColor="rgba(255,255,255,0.3)"
+        thumbTintColor="#FFFFFF"
+      />
+      <View style={styles.timeRow}>
+        <Text style={styles.timeText}>{formatTime(displayProgress)}</Text>
+        <Text style={styles.timeText}>{formatTime(dur)}</Text>
+      </View>
+    </View>
+  );
+
+  const controlsNode = (
+    <View style={isLandscape ? styles.controlsLandscape : styles.controls}>
+      <TouchableOpacity
+        onPress={() => {
+          if (isOfflineMode && shuffleMode === 'on') { setShuffleMode('off'); return; }
+          toggleShuffle();
+        }}
+        hitSlop={HIT}
+        disabled={isFetchingMagic}
+        style={isFetchingMagic ? styles.dimmed : undefined}>
+        {isFetchingMagic
+          ? <ActivityIndicator size="small" color="#fff" />
+          : <ShuffleIcon mode={shuffleMode} />}
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={skipPrev} hitSlop={HIT}>
+        <PrevIcon />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={togglePlay} style={styles.bigPlayBtn}>
+        {isPlaying ? <BigPauseIcon /> : <BigPlayIcon />}
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={skipNext} hitSlop={HIT}>
+        <NextIcon />
+      </TouchableOpacity>
+
+      <TouchableOpacity onPress={cycleRepeat} hitSlop={HIT}>
+        <RepeatIcon mode={repeatMode} />
+      </TouchableOpacity>
+    </View>
+  );
+
+  const lyricsNode = (
+    <TouchableOpacity
+      style={isLandscape ? styles.lyricsCardLandscape : styles.lyricsCard}
+      onPress={() => setLyricsVisible(true)}
+      activeOpacity={lyricsData && lyricsData.lines.length > 0 ? 0.75 : 1}
+      disabled={!lyricsData || lyricsData.lines.length === 0}>
+      <Text style={styles.lyricsTitle}>{t.fullScreenPlayer.lyricsTitle}</Text>
+      {lyricsData === undefined ? (
+        <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" style={styles.lyricsLoader} />
+      ) : lyricsData === null ? (
+        <Text style={styles.lyricsTextDim}>{t.lyricsScreen.noLyrics}</Text>
+      ) : (
+        <Text style={styles.lyricsText} numberOfLines={1}>{lyricsPreview}</Text>
+      )}
+    </TouchableOpacity>
+  );
+
   return (
     <Modal
       visible={visible}
@@ -411,186 +602,101 @@ export default function FullScreenPlayer() {
         {/* ── Ambient Halo Background ── */}
         <AmbientBackground key={currentTrack.coverArt ?? ''} coverArtId={currentTrack.coverArt} />
 
-        <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-
-          {/* ── Header ── */}
-          <View style={styles.header}>
-            <TouchableOpacity onPress={handleClose} hitSlop={HIT}>
-              <ChevronDownIcon />
-            </TouchableOpacity>
-            <View style={styles.headerCenter}>
-              <Text style={styles.headerSub}>{t.playlistDetail.contextLabel}</Text>
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                {currentPlaylistName || currentTrack.album || t.library.title}
-              </Text>
+        {isLandscape ? (
+          <SafeAreaView style={styles.safeAreaLandscape} edges={['top', 'bottom', 'left', 'right']}>
+            {/* ── Header — chevron always top-left, dots always top-right,
+                shared across both columns below ── */}
+            <View style={styles.headerLandscape}>
+              {chevronBtn}
+              {dotsBtn}
             </View>
-            <TouchableOpacity hitSlop={HIT} onPress={() => setSongOptionsVisible(true)}>
-              <DotsHorizontalIcon size={24} />
-            </TouchableOpacity>
-          </View>
 
-          {/* ── Cover Art ── */}
-          <View style={styles.coverSection}>
-            <View style={styles.coverCenter}>
-              <Animated.View style={[styles.coverWrapper, {transform: [{scale: coverScale}]}]}>
-                <CoverArt id={currentTrack.coverArt} size={COVER_SIZE} borderRadius={8} />
-              </Animated.View>
-              {!fspTrackId.startsWith('ext-') && currentTrackAsSong && (
-                <TouchableOpacity
-                  style={styles.coverDownloadBtn}
-                  hitSlop={{top: 8, bottom: 8, left: 8, right: 8}}
-                  activeOpacity={0.7}
-                  onPress={handleDownloadPress}>
-                  <CoverDownloadIcon trackId={fspTrackId} size={28} />
-                </TouchableOpacity>
+            {/* ── Body — StandBy-style split: hero cover fills its own column
+                (no competing content), the other column carries everything
+                else top-to-bottom. Order swappable via fullPlayerCoverSide. ── */}
+            <View style={styles.bodyLandscape}>
+              {fullPlayerCoverSide === 'left' ? (
+                <>
+                  <View style={styles.landscapeCoverCol}>{coverNode}</View>
+                  <View style={styles.landscapeContentCol}>
+                    <View style={styles.landscapeInnerHeader}>
+                      <View style={styles.landscapeTitleBlock}>
+                        {magicBadgeNode}
+                        {titleNode}
+                        {artistNameNode}
+                      </View>
+                      {infoActionsNode}
+                    </View>
+                    <View style={styles.landscapeMiddleGroup}>
+                      {progressNode}
+                      {controlsNode}
+                    </View>
+                    {lyricsNode}
+                  </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.landscapeContentCol}>
+                    <View style={styles.landscapeInnerHeader}>
+                      <View style={styles.landscapeTitleBlock}>
+                        {magicBadgeNode}
+                        {titleNode}
+                        {artistNameNode}
+                      </View>
+                      {infoActionsNode}
+                    </View>
+                    <View style={styles.landscapeMiddleGroup}>
+                      {progressNode}
+                      {controlsNode}
+                    </View>
+                    {lyricsNode}
+                  </View>
+                  <View style={styles.landscapeCoverCol}>{coverNode}</View>
+                </>
               )}
             </View>
-          </View>
+          </SafeAreaView>
+        ) : (
+          <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
 
-          {/* ── Track Info + Like ── */}
-          <View style={styles.infoRow}>
-            <View style={styles.infoText}>
-              {(currentTrack as any).isMagic && (
-                <View style={styles.magicBadge}>
-                  <TrackMagicIcon size={22} />
-                </View>
-              )}
-              <TextTicker
-                style={styles.trackTitle}
-                duration={8000}
-                loop
-                bounce={false}
-                repeatSpacer={50}
-                marqueeDelay={2000}>
-                {currentTrack.title}
-              </TextTicker>
-              <Text style={styles.trackArtist} numberOfLines={1}>
-                {(currentTrack.artist ?? '')
-                  .split(/,\s+|\s+feat\.?\s+|\s+ft\.?\s+/i)
-                  .map((name, i) => (
-                    <React.Fragment key={i}>
-                      {i > 0 && ', '}
-                      <Text
-                        onPress={() => onArtistPress(name.trim(), i === 0 ? currentTrack.artistId : undefined)}
-                        suppressHighlighting>
-                        {name.trim()}
-                      </Text>
-                    </React.Fragment>
-                  ))}
-              </Text>
-            </View>
-            <View style={styles.infoActions}>
-              <TouchableOpacity hitSlop={HIT} onPress={openQueue}>
-                <QueueIcon />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setPlaylistSheetOpen(true)}
-                hitSlop={HIT}>
-                <Svg width={26} height={26} viewBox="0 0 26 26">
-                  {inPlaylist ? (
-                    <>
-                      <Circle cx={13} cy={13} r={12} fill="#1ED760" />
-                      <Path d="M7.5 13.5 L11 17 L18.5 9.5" stroke="#000" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
-                    </>
-                  ) : (
-                    <>
-                      <Circle cx={13} cy={13} r={11.5} stroke="#B3B3B3" strokeWidth={1.5} fill="none" />
-                      <Path d="M13 8 L13 18 M8 13 L18 13" stroke="#B3B3B3" strokeWidth={1.8} strokeLinecap="round" fill="none" />
-                    </>
-                  )}
-                </Svg>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleToggleLike} hitSlop={HIT} disabled={pendingLikes.has(fspTrackId)}>
-                {pendingLikes.has(fspTrackId)
-                  ? <ActivityIndicator size="small" color="rgba(255,255,255,0.6)" style={{width: 26, height: 26}} />
-                  : <HeartIcon size={26} color={isLiked ? '#E8553E' : 'rgba(255,255,255,0.6)'} filled={isLiked} />}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* ── Progress ── */}
-          {useWaveformScrubber ? (
-            <WaveformScrubber
-              trackId={currentTrack.id}
-              duration={dur}
-              currentTime={displayProgress}
-              onSeek={seekTo}
-            />
-          ) : (
-            <View style={styles.sliderSection}>
-              <Slider
-                style={styles.slider}
-                minimumValue={0}
-                maximumValue={dur}
-                value={displayProgress}
-                onValueChange={v => {
-                  setIsSeeking(true);
-                  setSeekValue(v);
-                }}
-                onSlidingComplete={v => {
-                  setIsSeeking(false);
-                  seekTo(v);
-                }}
-                minimumTrackTintColor="#FFFFFF"
-                maximumTrackTintColor="rgba(255,255,255,0.3)"
-                thumbTintColor="#FFFFFF"
-              />
-              <View style={styles.timeRow}>
-                <Text style={styles.timeText}>{formatTime(displayProgress)}</Text>
-                <Text style={styles.timeText}>{formatTime(dur)}</Text>
+            {/* ── Header ── */}
+            <View style={styles.header}>
+              {chevronBtn}
+              <View style={styles.headerCenter}>
+                <Text style={styles.headerSub}>{t.playlistDetail.contextLabel}</Text>
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                  {currentPlaylistName || currentTrack.album || t.library.title}
+                </Text>
               </View>
+              {dotsBtn}
             </View>
-          )}
 
-          {/* ── Main Controls ── */}
-          <View style={styles.controls}>
-            <TouchableOpacity
-              onPress={() => {
-                if (isOfflineMode && shuffleMode === 'on') { setShuffleMode('off'); return; }
-                toggleShuffle();
-              }}
-              hitSlop={HIT}
-              disabled={isFetchingMagic}
-              style={isFetchingMagic ? styles.dimmed : undefined}>
-              {isFetchingMagic
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <ShuffleIcon mode={shuffleMode} />}
-            </TouchableOpacity>
+            {/* ── Cover Art ── */}
+            <View style={[styles.coverSection, {height: COVER_SIZE + 24}]}>
+              {coverNode}
+            </View>
 
-            <TouchableOpacity onPress={skipPrev} hitSlop={HIT}>
-              <PrevIcon />
-            </TouchableOpacity>
+            {/* ── Track Info + Like ── */}
+            <View style={styles.infoRow}>
+              <View style={styles.infoText}>
+                {magicBadgeNode}
+                {titleNode}
+                {artistNameNode}
+              </View>
+              {infoActionsNode}
+            </View>
 
-            <TouchableOpacity onPress={togglePlay} style={styles.bigPlayBtn}>
-              {isPlaying ? <BigPauseIcon /> : <BigPlayIcon />}
-            </TouchableOpacity>
+            {/* ── Progress ── */}
+            {progressNode}
 
-            <TouchableOpacity onPress={skipNext} hitSlop={HIT}>
-              <NextIcon />
-            </TouchableOpacity>
+            {/* ── Main Controls ── */}
+            {controlsNode}
 
-            <TouchableOpacity onPress={cycleRepeat} hitSlop={HIT}>
-              <RepeatIcon mode={repeatMode} />
-            </TouchableOpacity>
-          </View>
+            {/* ── Lyrics Peek — always visible; clickable only when lyrics are loaded ── */}
+            {lyricsNode}
 
-          {/* ── Lyrics Peek — always visible; clickable only when lyrics are loaded ── */}
-          <TouchableOpacity
-            style={styles.lyricsCard}
-            onPress={() => setLyricsVisible(true)}
-            activeOpacity={lyricsData && lyricsData.lines.length > 0 ? 0.75 : 1}
-            disabled={!lyricsData || lyricsData.lines.length === 0}>
-            <Text style={styles.lyricsTitle}>{t.fullScreenPlayer.lyricsTitle}</Text>
-            {lyricsData === undefined ? (
-              <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" style={styles.lyricsLoader} />
-            ) : lyricsData === null ? (
-              <Text style={styles.lyricsTextDim}>{t.lyricsScreen.noLyrics}</Text>
-            ) : (
-              <Text style={styles.lyricsText} numberOfLines={1}>{lyricsPreview}</Text>
-            )}
-          </TouchableOpacity>
-
-        </SafeAreaView>
+          </SafeAreaView>
+        )}
 
         {/* ── Queue Sheet ── */}
         <QueueSheet
@@ -644,8 +750,9 @@ const styles = StyleSheet.create({
   ambientOverlay2: {backgroundColor: 'rgba(18,18,18,0.3)'},
   coverCenter: {
     position: 'relative',
-    width: COVER_SIZE,
-    height: COVER_SIZE,
+  },
+  coverCenterLandscape: {
+    position: 'relative',
   },
   coverDownloadBtn: {
     position: 'absolute',
@@ -687,7 +794,6 @@ const styles = StyleSheet.create({
 
   // Cover
   coverSection: {
-    height: COVER_SIZE + 24,
     width: '100%',
     paddingTop: 10,
     paddingBottom: 6,
@@ -805,6 +911,87 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.3)',
     marginTop: 6,
     fontStyle: 'italic',
+  },
+  likeSpinner: {
+    width: 26,
+    height: 26,
+  },
+
+  // ── Landscape layout — one horizontal flow: mini cover + title/artist row,
+  // StandBy-style split: a hero cover column (no competing content, so it
+  // can fill the whole column height) and a content column carrying header,
+  // progress, controls, and lyrics distributed top-to-bottom.
+  safeAreaLandscape: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  headerLandscape: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 4,
+    height: 40,
+  },
+  bodyLandscape: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  landscapeCoverCol: {
+    flex: 0.4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  landscapeContentCol: {
+    flex: 0.6,
+    paddingLeft: 24,
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  landscapeInnerHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  landscapeTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  landscapeMiddleGroup: {
+    justifyContent: 'center',
+  },
+  trackTitleLandscape: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.3,
+  },
+  trackArtistLandscape: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.65)',
+    marginTop: 4,
+  },
+  infoActionsLandscape: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flexShrink: 0,
+    marginTop: 20,
+  },
+  controlsLandscape: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 28,
+    marginTop: 6,
+    marginBottom: 22,
+  },
+  lyricsCardLandscape: {
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 12,
+    padding: 14,
   },
 
 });
