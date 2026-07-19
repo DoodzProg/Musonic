@@ -1,10 +1,11 @@
 /**
  * @file index.tsx
- * @description Library screen. Lists the user's playlists, starred albums, and
- *   liked songs in list or grid view with sort options, pin support, pull-to-refresh,
- *   and auto-recovery on connectivity restore.
+ * @description Library screen. Lists the user's playlists, starred albums,
+ *   liked songs, and the "My Music" full-library entry in list or grid view
+ *   with sort options, pin support, pull-to-refresh, and auto-recovery on
+ *   connectivity restore.
  * @author DoodzProg
- * @version 1.0.2
+ * @version 1.0.3
  * @license MIT
  */
 
@@ -64,7 +65,8 @@ type LibraryItem = {
   duration: number;
   coverArt?: string;
   isLiked?: boolean;
-  kind: 'liked' | 'playlist' | 'album';
+  isAllSongs?: boolean;
+  kind: 'liked' | 'allSongs' | 'playlist' | 'album';
   artist?: string;
 };
 
@@ -203,6 +205,30 @@ function LikedCover({size, borderRadius = 6}: {size: number; borderRadius?: numb
       colors={['#6B2FA0', '#1E3A8A']}
       style={coverStyle}>
       <HeartIcon size={size * 0.45} color="#fff" filled />
+    </LinearGradient>
+  );
+}
+
+// ─── All Songs Cover ──────────────────────────────────────────────────────────
+
+function AllSongsCover({size, borderRadius = 6}: {size: number; borderRadius?: number}) {
+  const coverStyle = {width: size, height: size, borderRadius, alignItems: 'center' as const, justifyContent: 'center' as const};
+  return (
+    <LinearGradient
+      colors={['#2C3E50', '#12181f']}
+      style={coverStyle}>
+      <Svg width={size * 0.42} height={size * 0.42} viewBox="0 0 24 24">
+        <Path
+          d="M9 18V5l12-2v13"
+          stroke="#fff"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        <Circle cx="6" cy="18" r="3" stroke="#fff" strokeWidth={1.8} fill="none" />
+        <Circle cx="18" cy="16" r="3" stroke="#fff" strokeWidth={1.8} fill="none" />
+      </Svg>
     </LinearGradient>
   );
 }
@@ -385,6 +411,9 @@ function rowSubtitle(item: LibraryItem): string {
   if (item.kind === 'liked') {
     return d.library.likedTrackCount(item.songCount);
   }
+  if (item.kind === 'allSongs') {
+    return d.allSongs.subtitle;
+  }
   if (item.kind === 'album') {
     return `Album • ${item.artist ?? ''}`;
   }
@@ -412,6 +441,8 @@ function PlaylistRow({
       activeOpacity={0.7}>
       {item.isLiked ? (
         <LikedCover size={65} />
+      ) : item.isAllSongs ? (
+        <AllSongsCover size={65} />
       ) : item.coverArt || item.kind === 'playlist' ? (
         <CoverArt id={item.coverArt} size={65} borderRadius={6} playlistId={item.kind === 'playlist' ? item.id : undefined} />
       ) : (
@@ -481,6 +512,8 @@ function PlaylistGridCard({
   const gridSub =
     item.kind === 'album'
       ? item.artist ?? ''
+      : item.kind === 'allSongs'
+      ? t.allSongs.subtitle
       : isLoading
       ? '…'
       : t.likedSongs.trackCount(item.songCount);
@@ -494,6 +527,8 @@ function PlaylistGridCard({
       activeOpacity={0.7}>
       {item.isLiked ? (
         <LikedCover size={imgSize} borderRadius={8} />
+      ) : item.isAllSongs ? (
+        <AllSongsCover size={imgSize} borderRadius={8} />
       ) : item.coverArt || item.kind === 'playlist' ? (
         <CoverArt id={item.coverArt} size={imgSize} borderRadius={8} playlistId={item.kind === 'playlist' ? item.id : undefined} />
       ) : (
@@ -666,9 +701,21 @@ export default function LibraryScreen() {
     [likedCount],
   );
 
+  const allSongsItem = useMemo<LibraryItem>(
+    () => ({
+      id: 'allSongs',
+      name: getT().allSongs.title,
+      songCount: 0,
+      duration: 0,
+      isAllSongs: true,
+      kind: 'allSongs',
+    }),
+    [],
+  );
+
   const allItems = useMemo<LibraryItem[]>(
-    () => [likedItem, ...items],
-    [likedItem, items],
+    () => [likedItem, allSongsItem, ...items],
+    [likedItem, allSongsItem, items],
   );
 
   const handlePress = useCallback(
@@ -677,6 +724,8 @@ export default function LibraryScreen() {
       if (!item) return;
       if (item.kind === 'liked') {
         navigation.navigate('LikedSongs');
+      } else if (item.kind === 'allSongs') {
+        navigation.navigate('AllSongs');
       } else if (item.kind === 'album') {
         navigation.navigate('AlbumDetail', {albumId: id});
       } else {
@@ -817,9 +866,11 @@ export default function LibraryScreen() {
   }, [newPlaylistName, isCreating, bumpPlaylistVersion]);
 
   const sortedItems = useMemo<LibraryItem[]>(() => {
-    // Liked Songs is always absolute first — excluded from sort and pin logic.
+    // Liked Songs + All Songs are always absolute first (in that order) —
+    // excluded from sort and pin logic, same as Liked Songs.
     const liked = allItems.find(p => p.id === 'liked');
-    const pool = allItems.filter(p => p.id !== 'liked');
+    const allSongs = allItems.find(p => p.id === 'allSongs');
+    const pool = allItems.filter(p => p.id !== 'liked' && p.id !== 'allSongs');
 
     let ordered: LibraryItem[];
     if (sortMode === 'recent') {
@@ -835,7 +886,8 @@ export default function LibraryScreen() {
     }
     const pinned = ordered.filter(p => pinnedIds.has(p.id));
     const rest = ordered.filter(p => !pinnedIds.has(p.id));
-    return liked ? [liked, ...pinned, ...rest] : [...pinned, ...rest];
+    const fixed = [liked, allSongs].filter((p): p is LibraryItem => !!p);
+    return [...fixed, ...pinned, ...rest];
   }, [allItems, sortMode, pinnedIds, lastPlayedPlaylists]);
 
   const colWidth = Math.floor((SCREEN_W - 32) / 3);

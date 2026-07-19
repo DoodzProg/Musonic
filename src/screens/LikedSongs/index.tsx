@@ -1,16 +1,18 @@
 /**
  * @file index.tsx
- * @description Liked Songs screen. Displays all starred tracks with playback,
- *   like/add-to-playlist/download actions per row, and remove-from-liked actions.
+ * @description Liked Songs screen. Text-only header (no cover) with a top search
+ *   bar, like/add-to-playlist/download actions per row, and remove-from-liked
+ *   actions.
  * @author DoodzProg
  * @version 1.0.3
  * @license MIT
  */
 
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useMemo} from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   TouchableOpacity,
   StatusBar,
@@ -24,6 +26,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import {darkTheme} from '../../theme';
 import BackArrowIcon from '../../components/icons/BackArrowIcon';
 import PlayIcon from '../../components/icons/PlayIcon';
+import SearchIcon from '../../components/icons/SearchIcon';
 import DotsVerticalIcon from '../../components/icons/DotsVerticalIcon';
 import {getStarred} from '../../api/endpoints/library';
 import {getStreamUrl, getCoverArtUrl} from '../../api/client';
@@ -157,6 +160,7 @@ export default function LikedSongsScreen() {
   const [songOptsVisible, setSongOptsVisible] = useState(false);
   const [addToPlaylistSong, setAddToPlaylistSong] = useState<SubsonicSong | null>(null);
   const [addToPlaylistVisible, setAddToPlaylistVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   useFocusEffect(useCallback(() => {
     setLoading(true);
     getStarred()
@@ -170,6 +174,14 @@ export default function LikedSongsScreen() {
 
   const displayedSongs = songs.filter(s => localLikeOverrides[String(s.id)] !== false);
 
+  const searchedSongs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return displayedSongs;
+    return displayedSongs.filter(
+      s => s.title.toLowerCase().includes(q) || (s.artist ?? '').toLowerCase().includes(q),
+    );
+  }, [displayedSongs, searchQuery]);
+
   const handlePlayAll = useCallback(() => {
     if (displayedSongs.length === 0) return;
     const tracks = displayedSongs.map(songToTrack);
@@ -179,9 +191,9 @@ export default function LikedSongsScreen() {
 
   const handlePressSong = useCallback(
     (index: number) => {
-      loadAndPlayTracks(displayedSongs.map(songToTrack), index);
+      loadAndPlayTracks(searchedSongs.map(songToTrack), index);
     },
-    [displayedSongs],
+    [searchedSongs],
   );
 
   const handleMore = useCallback((song: SubsonicSong) => {
@@ -199,10 +211,10 @@ export default function LikedSongsScreen() {
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
-      <StatusBar barStyle="light-content" backgroundColor="#1a1040" />
+      <StatusBar barStyle="light-content" backgroundColor={darkTheme.background} />
 
       <FlashList
-        data={displayedSongs}
+        data={searchedSongs}
         keyExtractor={s => s.id}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
@@ -210,25 +222,39 @@ export default function LikedSongsScreen() {
             <LinearGradient
               colors={['#3d1870', '#1a1040', darkTheme.background]}
               style={styles.headerGrad}>
-              <TouchableOpacity
-                style={styles.backBtn}
-                onPress={() => navigation.goBack()}>
-                <BackArrowIcon />
-              </TouchableOpacity>
-              <LinearGradient
-                colors={['#6B2FA0', '#1E3A8A']}
-                style={styles.headerCover}>
-                <HeartIcon size={72} color="#fff" filled />
-              </LinearGradient>
-              <Text style={styles.title}>{t.likedSongs.title}</Text>
-              <Text style={styles.subtitle}>
-                {loading ? '…' : t.likedSongs.trackCount(displayedSongs.length)}
-              </Text>
+              <View style={styles.topBar}>
+                <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                  <BackArrowIcon />
+                </TouchableOpacity>
+                <View style={styles.searchPill}>
+                  <SearchIcon size={16} color="#888" />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder={t.likedSongs.searchPlaceholder}
+                    placeholderTextColor="#666"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.titleBlock}>
+                <Text style={styles.title}>{t.likedSongs.title}</Text>
+                <Text style={styles.subtitle}>
+                  {loading ? '…' : t.likedSongs.trackCount(displayedSongs.length)}
+                </Text>
+              </View>
             </LinearGradient>
 
             {!loading && displayedSongs.length > 0 && (
-              <>
-                <View style={styles.actionRow}>
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={styles.recoButton}
+                  onPress={() => navigation.navigate('LikedRecommendations')}
+                  activeOpacity={0.8}>
+                  <Text style={styles.recoButtonText}>{t.likedSongs.recommendedButton}</Text>
+                </TouchableOpacity>
+                <View style={styles.actionRowRight}>
                   <TouchableOpacity
                     style={styles.shuffleBtn}
                     onPress={toggleShuffle}
@@ -242,13 +268,7 @@ export default function LikedSongsScreen() {
                     <PlayIcon />
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={styles.recoButton}
-                  onPress={() => navigation.navigate('LikedRecommendations')}
-                  activeOpacity={0.8}>
-                  <Text style={styles.recoButtonText}>{t.likedSongs.recommendedButton}</Text>
-                </TouchableOpacity>
-              </>
+              </View>
             )}
           </View>
         }
@@ -299,30 +319,39 @@ export default function LikedSongsScreen() {
 const styles = StyleSheet.create({
   root: {flex: 1, backgroundColor: darkTheme.background},
   headerGrad: {
+    paddingBottom: 4,
+  },
+  topBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingBottom: 24,
+    paddingHorizontal: 12,
     paddingTop: 8,
+    paddingBottom: 4,
+    gap: 8,
   },
   backBtn: {
-    position: 'absolute',
-    top: 12,
-    left: 16,
     padding: 6,
-    zIndex: 10,
   },
-  headerCover: {
-    width: 160,
-    height: 160,
-    borderRadius: 12,
+  searchPill: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 40,
-    marginBottom: 20,
-    elevation: 12,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 6},
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
+    backgroundColor: '#282828',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+    padding: 0,
+  },
+  titleBlock: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
   title: {
     fontSize: 26,
@@ -339,9 +368,14 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
+    gap: 16,
+  },
+  actionRowRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 16,
   },
   shuffleBtn: {
@@ -365,16 +399,16 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   recoButton: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    paddingVertical: 12,
-    borderRadius: 24,
+    flexShrink: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
     backgroundColor: '#282828',
     alignItems: 'center',
   },
   recoButtonText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   listContent: {
