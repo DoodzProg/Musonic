@@ -150,6 +150,7 @@ export const en = {
     emptyState: 'No liked songs yet',
     trackCount: (n: number) => `${n} song${n !== 1 ? 's' : ''}`,
     recommendedButton: 'Recommended tracks',
+    searchPlaceholder: 'Search in Liked Songs',
   },
 
   // ─── Liked Recommendations ─────────────────────────────────────────────────
@@ -158,6 +159,16 @@ export const en = {
     subtitle: 'Based on your liked songs',
     loading: 'Finding recommendations…',
     emptyState: 'No recommendations available right now',
+  },
+
+  // ─── All Songs (full library) ──────────────────────────────────────────────
+  allSongs: {
+    title: 'My Music',
+    subtitle: 'All the tracks in your library',
+    searchPlaceholder: 'Search your music',
+    searchEmpty: 'No matching tracks',
+    loadingLibrary: 'Loading your whole library…',
+    libraryEmpty: 'No tracks in your library',
   },
 
   // ─── Playlist Detail ───────────────────────────────────────────────────────

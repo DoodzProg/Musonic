@@ -154,6 +154,7 @@ export const t = {
     emptyState: "Aucun titre liké pour l'instant",
     trackCount: (n: number) => `${n} titre${n !== 1 ? 's' : ''}`,
     recommendedButton: 'Titres recommandés',
+    searchPlaceholder: 'Rechercher dans les titres likés',
   },
 
   // ─── Liked Recommendations ─────────────────────────────────────────────────
@@ -162,6 +163,16 @@ export const t = {
     subtitle: 'Basé sur vos titres likés',
     loading: 'Recherche de recommandations…',
     emptyState: 'Aucune recommandation disponible pour le moment',
+  },
+
+  // ─── Ma Musique (bibliothèque complète) ────────────────────────────────────
+  allSongs: {
+    title: 'Ma Musique',
+    subtitle: 'Tous les titres de votre bibliothèque',
+    searchPlaceholder: 'Rechercher dans ma musique',
+    searchEmpty: 'Aucun titre trouvé',
+    loadingLibrary: 'Chargement de toute votre bibliothèque…',
+    libraryEmpty: 'Aucun titre dans votre bibliothèque',
   },
 
   // ─── Playlist Detail ───────────────────────────────────────────────────────

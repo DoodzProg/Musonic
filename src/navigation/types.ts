@@ -9,6 +9,7 @@ export type LibraryStackParams = {
   LibraryHome: undefined;
   LikedSongs: undefined;
   LikedRecommendations: undefined;
+  AllSongs: undefined;
   PlaylistDetail: {playlistId: string; autoEdit?: boolean};
   AlbumDetail: {albumId: string};
   ArtistDetail: {artistId?: string; artistName?: string};
